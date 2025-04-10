@@ -17,7 +17,8 @@ class _GeometryAppState extends State<GeometryApp> {
 
   void toggleTheme() {
     setState(() {
-      _themeMode = _themeMode == ThemeMode.light ? ThemeMode.dark : ThemeMode.light;
+      _themeMode =
+          _themeMode == ThemeMode.light ? ThemeMode.dark : ThemeMode.light;
     });
   }
 
@@ -45,11 +46,7 @@ class _GeometryAppState extends State<GeometryApp> {
   }
 }
 
-enum GeometryTool {
-  point,
-  line,
-  circle,
-}
+enum GeometryTool { point, line, circle }
 
 class GeometryCanvas extends StatefulWidget {
   final VoidCallback toggleTheme;
@@ -68,7 +65,7 @@ class _GeometryCanvasState extends State<GeometryCanvas> {
   @override
   Widget build(BuildContext context) {
     final isDarkMode = Theme.of(context).brightness == Brightness.dark;
-    
+
     return Scaffold(
       appBar: AppBar(
         title: const Text('Dynamic Geometry'),
@@ -84,7 +81,7 @@ class _GeometryCanvasState extends State<GeometryCanvas> {
       body: GestureDetector(
         onTapDown: (details) => _handleTap(details, context),
         child: Container(
-          color: Theme.of(context).colorScheme.background,
+          color: Theme.of(context).colorScheme.surface,
           child: CustomPaint(
             painter: GeometryPainter(_objects),
             size: Size.infinite,
@@ -100,7 +97,8 @@ class _GeometryCanvasState extends State<GeometryCanvas> {
               icon: Icons.circle_outlined,
               label: 'Point',
               isSelected: _currentTool == GeometryTool.point,
-              onPressed: () => setState(() => _currentTool = GeometryTool.point),
+              onPressed:
+                  () => setState(() => _currentTool = GeometryTool.point),
             ),
             ToolButton(
               icon: Icons.show_chart,
@@ -112,7 +110,8 @@ class _GeometryCanvasState extends State<GeometryCanvas> {
               icon: Icons.circle,
               label: 'Circle',
               isSelected: _currentTool == GeometryTool.circle,
-              onPressed: () => setState(() => _currentTool = GeometryTool.circle),
+              onPressed:
+                  () => setState(() => _currentTool = GeometryTool.circle),
             ),
           ],
         ),
@@ -122,7 +121,7 @@ class _GeometryCanvasState extends State<GeometryCanvas> {
 
   void _handleTap(TapDownDetails details, BuildContext context) {
     final position = details.localPosition;
-    
+
     switch (_currentTool) {
       case GeometryTool.point:
         setState(() {
@@ -138,7 +137,9 @@ class _GeometryCanvasState extends State<GeometryCanvas> {
           });
         } else {
           setState(() {
-            _objects.add(Line(_tempStartPoint!, Point(position.dx, position.dy)));
+            _objects.add(
+              Line(_tempStartPoint!, Point(position.dx, position.dy)),
+            );
             _tempStartPoint = null;
           });
         }
@@ -152,7 +153,7 @@ class _GeometryCanvasState extends State<GeometryCanvas> {
         } else {
           final radius = math.sqrt(
             math.pow(position.dx - _tempStartPoint!.x, 2) +
-            math.pow(position.dy - _tempStartPoint!.y, 2)
+                math.pow(position.dy - _tempStartPoint!.y, 2),
           );
           setState(() {
             _objects.add(Circle(_tempStartPoint!, radius));
@@ -189,17 +190,19 @@ class ToolButton extends StatelessWidget {
           children: [
             Icon(
               icon,
-              color: isSelected
-                  ? Theme.of(context).colorScheme.primary
-                  : Theme.of(context).colorScheme.onSurface,
+              color:
+                  isSelected
+                      ? Theme.of(context).colorScheme.primary
+                      : Theme.of(context).colorScheme.onSurface,
               size: 28,
             ),
             Text(
               label,
               style: TextStyle(
-                color: isSelected
-                    ? Theme.of(context).colorScheme.primary
-                    : Theme.of(context).colorScheme.onSurface,
+                color:
+                    isSelected
+                        ? Theme.of(context).colorScheme.primary
+                        : Theme.of(context).colorScheme.onSurface,
               ),
             ),
           ],
@@ -239,20 +242,23 @@ class GeometryPainter extends CustomPainter {
 
   @override
   void paint(Canvas canvas, Size size) {
-    final pointPaint = Paint()
-      ..color = Colors.red
-      ..strokeWidth = 2
-      ..style = PaintingStyle.fill;
+    final pointPaint =
+        Paint()
+          ..color = Colors.black
+          ..strokeWidth = 2
+          ..style = PaintingStyle.fill;
 
-    final linePaint = Paint()
-      ..color = Colors.blue
-      ..strokeWidth = 2
-      ..style = PaintingStyle.stroke;
+    final linePaint =
+        Paint()
+          ..color = Colors.blue
+          ..strokeWidth = 2
+          ..style = PaintingStyle.stroke;
 
-    final circlePaint = Paint()
-      ..color = Colors.green
-      ..strokeWidth = 2
-      ..style = PaintingStyle.stroke;
+    final circlePaint =
+        Paint()
+          ..color = Colors.green
+          ..strokeWidth = 2
+          ..style = PaintingStyle.stroke;
 
     for (final object in objects) {
       if (object is Point) {
