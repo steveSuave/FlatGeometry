@@ -144,9 +144,9 @@ class _GeometryCanvasState extends State<GeometryCanvas> {
           });
         } else {
           setState(() {
-            _objects.add(
-              Line(_tempStartPoint!, Point(position.dx, position.dy)),
-            );
+            Point endPoint = Point(position.dx, position.dy);
+            _objects.add(Line(_tempStartPoint!, endPoint));
+            _objects.add(endPoint);
             _tempStartPoint = null;
           });
         }
@@ -254,7 +254,7 @@ class GeometryPainter extends CustomPainter {
   void paint(Canvas canvas, Size size) {
     final pointPaint =
         Paint()
-          ..color = Colors.black
+          ..color = Colors.deepPurple
           ..strokeWidth = 2
           ..style = PaintingStyle.fill;
 
