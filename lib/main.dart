@@ -90,30 +90,37 @@ class _GeometryCanvasState extends State<GeometryCanvas> {
       ),
       bottomNavigationBar: BottomAppBar(
         color: Theme.of(context).colorScheme.primaryContainer,
-        child: Row(
-          mainAxisAlignment: MainAxisAlignment.spaceEvenly,
-          children: [
-            ToolButton(
-              icon: Icons.circle_outlined,
-              label: 'Point',
-              isSelected: _currentTool == GeometryTool.point,
-              onPressed:
-                  () => setState(() => _currentTool = GeometryTool.point),
-            ),
-            ToolButton(
-              icon: Icons.show_chart,
-              label: 'Line',
-              isSelected: _currentTool == GeometryTool.line,
-              onPressed: () => setState(() => _currentTool = GeometryTool.line),
-            ),
-            ToolButton(
-              icon: Icons.circle,
-              label: 'Circle',
-              isSelected: _currentTool == GeometryTool.circle,
-              onPressed:
-                  () => setState(() => _currentTool = GeometryTool.circle),
-            ),
-          ],
+        child: LayoutBuilder(
+          builder: (context, constraints) {
+            // Calculate vertical padding as 20% of the BottomAppBar's height
+            final verticalPadding = constraints.maxHeight * 0.2;
+            return Row(
+              mainAxisAlignment: MainAxisAlignment.spaceEvenly,
+              children: [
+                ToolButton(
+                  padding: EdgeInsets.symmetric(vertical: verticalPadding, horizontal: 16.0),
+                  icon: Icons.circle_outlined,
+                  label: 'Point',
+                  isSelected: _currentTool == GeometryTool.point,
+                  onPressed: () => setState(() => _currentTool = GeometryTool.point),
+                ),
+                ToolButton(
+                  padding: EdgeInsets.symmetric(vertical: verticalPadding, horizontal: 16.0),
+                  icon: Icons.show_chart,
+                  label: 'Line',
+                  isSelected: _currentTool == GeometryTool.line,
+                  onPressed: () => setState(() => _currentTool = GeometryTool.line),
+                ),
+                ToolButton(
+                  padding: EdgeInsets.symmetric(vertical: verticalPadding, horizontal: 16.0),
+                  icon: Icons.circle,
+                  label: 'Circle',
+                  isSelected: _currentTool == GeometryTool.circle,
+                  onPressed: () => setState(() => _currentTool = GeometryTool.circle),
+                ),
+              ],
+            );
+          },
         ),
       ),
     );
@@ -170,6 +177,7 @@ class ToolButton extends StatelessWidget {
   final String label;
   final bool isSelected;
   final VoidCallback onPressed;
+  final EdgeInsets padding;
 
   const ToolButton({
     super.key,
@@ -177,6 +185,7 @@ class ToolButton extends StatelessWidget {
     required this.label,
     required this.isSelected,
     required this.onPressed,
+    this.padding = const EdgeInsets.symmetric(vertical: 8.0, horizontal: 16.0),
   });
 
   @override
@@ -184,28 +193,29 @@ class ToolButton extends StatelessWidget {
     return InkWell(
       onTap: onPressed,
       child: Padding(
-        padding: const EdgeInsets.symmetric(vertical: 8.0, horizontal: 16.0),
-        child: Column(
-          mainAxisSize: MainAxisSize.min,
-          children: [
-            Icon(
-              icon,
-              color:
-                  isSelected
+        padding: padding,
+        child: FittedBox(
+          fit: BoxFit.scaleDown,
+          child: Column(
+            mainAxisSize: MainAxisSize.min,
+            children: [
+              Icon(
+                icon,
+                color: isSelected
+                    ? Theme.of(context).colorScheme.primary
+                    : Theme.of(context).colorScheme.onSurface,
+                size: 28,
+              ),
+              Text(
+                label,
+                style: TextStyle(
+                  color: isSelected
                       ? Theme.of(context).colorScheme.primary
                       : Theme.of(context).colorScheme.onSurface,
-              size: 28,
-            ),
-            Text(
-              label,
-              style: TextStyle(
-                color:
-                    isSelected
-                        ? Theme.of(context).colorScheme.primary
-                        : Theme.of(context).colorScheme.onSurface,
+                ),
               ),
-            ),
-          ],
+            ],
+          ),
         ),
       ),
     );
