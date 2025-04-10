@@ -61,6 +61,8 @@ class _GeometryCanvasState extends State<GeometryCanvas> {
   GeometryTool _currentTool = GeometryTool.point;
   final List<GeometryObject> _objects = [];
   Point? _tempStartPoint;
+  final double _pointSelectionThreshold =
+      20.0; // Distance threshold for point snapping
 
   @override
   Widget build(BuildContext context) {
@@ -98,25 +100,37 @@ class _GeometryCanvasState extends State<GeometryCanvas> {
               mainAxisAlignment: MainAxisAlignment.spaceEvenly,
               children: [
                 ToolButton(
-                  padding: EdgeInsets.symmetric(vertical: verticalPadding, horizontal: 16.0),
-                  icon: Icons.circle_outlined,
+                  padding: EdgeInsets.symmetric(
+                    vertical: verticalPadding,
+                    horizontal: 16.0,
+                  ),
+                  icon: Icons.fiber_manual_record,
                   label: 'Point',
                   isSelected: _currentTool == GeometryTool.point,
-                  onPressed: () => setState(() => _currentTool = GeometryTool.point),
+                  onPressed:
+                      () => setState(() => _currentTool = GeometryTool.point),
                 ),
                 ToolButton(
-                  padding: EdgeInsets.symmetric(vertical: verticalPadding, horizontal: 16.0),
-                  icon: Icons.show_chart,
+                  padding: EdgeInsets.symmetric(
+                    vertical: verticalPadding,
+                    horizontal: 16.0,
+                  ),
+                  icon: Icons.horizontal_rule,
                   label: 'Line',
                   isSelected: _currentTool == GeometryTool.line,
-                  onPressed: () => setState(() => _currentTool = GeometryTool.line),
+                  onPressed:
+                      () => setState(() => _currentTool = GeometryTool.line),
                 ),
                 ToolButton(
-                  padding: EdgeInsets.symmetric(vertical: verticalPadding, horizontal: 16.0),
-                  icon: Icons.circle,
+                  padding: EdgeInsets.symmetric(
+                    vertical: verticalPadding,
+                    horizontal: 16.0,
+                  ),
+                  icon: Icons.circle_outlined,
                   label: 'Circle',
                   isSelected: _currentTool == GeometryTool.circle,
-                  onPressed: () => setState(() => _currentTool = GeometryTool.circle),
+                  onPressed:
+                      () => setState(() => _currentTool = GeometryTool.circle),
                 ),
               ],
             );
@@ -126,8 +140,27 @@ class _GeometryCanvasState extends State<GeometryCanvas> {
     );
   }
 
+  // Helper method to find nearby points
+  Point? _findNearbyPoint(Offset position) {
+    for (var object in _objects) {
+      if (object is Point) {
+        // Calculate distance between tap position and this point
+        double distance = getDistance(position, object);
+
+        // If the tap is close enough to this point, return it
+        if (distance <= _pointSelectionThreshold) {
+          return object;
+        }
+      }
+    }
+    // No nearby point found
+    return null;
+  }
+
   void _handleTap(TapDownDetails details, BuildContext context) {
     final position = details.localPosition;
+    // Check if there's a nearby existing point
+    final nearbyPoint = _findNearbyPoint(position);
 
     switch (_currentTool) {
       case GeometryTool.point:
@@ -139,14 +172,25 @@ class _GeometryCanvasState extends State<GeometryCanvas> {
       case GeometryTool.line:
         if (_tempStartPoint == null) {
           setState(() {
-            _tempStartPoint = Point(position.dx, position.dy);
-            _objects.add(_tempStartPoint!);
+            // Use nearby point or create a new one
+            if (nearbyPoint != null) {
+              _tempStartPoint = nearbyPoint;
+            } else {
+              _tempStartPoint = Point(position.dx, position.dy);
+              _objects.add(_tempStartPoint!);
+            }
           });
         } else {
           setState(() {
-            Point endPoint = Point(position.dx, position.dy);
+            // Use nearby point or create a new one for end point
+            Point endPoint;
+            if (nearbyPoint != null) {
+              endPoint = nearbyPoint;
+            } else {
+              endPoint = Point(position.dx, position.dy);
+              _objects.add(endPoint);
+            }
             _objects.add(Line(_tempStartPoint!, endPoint));
-            _objects.add(endPoint);
             _tempStartPoint = null;
           });
         }
@@ -154,14 +198,20 @@ class _GeometryCanvasState extends State<GeometryCanvas> {
       case GeometryTool.circle:
         if (_tempStartPoint == null) {
           setState(() {
-            _tempStartPoint = Point(position.dx, position.dy);
-            _objects.add(_tempStartPoint!);
+            // Use nearby point or create a new one for circle center
+            if (nearbyPoint != null) {
+              _tempStartPoint = nearbyPoint;
+            } else {
+              _tempStartPoint = Point(position.dx, position.dy);
+              _objects.add(_tempStartPoint!);
+            }
           });
         } else {
-          final radius = math.sqrt(
-            math.pow(position.dx - _tempStartPoint!.x, 2) +
-                math.pow(position.dy - _tempStartPoint!.y, 2),
-          );
+          Offset secondPoint =
+              nearbyPoint != null
+                  ? Offset(nearbyPoint.x, nearbyPoint.y)
+                  : position;
+          final radius = getDistance(secondPoint, _tempStartPoint!);
           setState(() {
             _objects.add(Circle(_tempStartPoint!, radius));
             _tempStartPoint = null;
@@ -201,17 +251,19 @@ class ToolButton extends StatelessWidget {
             children: [
               Icon(
                 icon,
-                color: isSelected
-                    ? Theme.of(context).colorScheme.primary
-                    : Theme.of(context).colorScheme.onSurface,
+                color:
+                    isSelected
+                        ? Theme.of(context).colorScheme.primary
+                        : Theme.of(context).colorScheme.onSurface,
                 size: 28,
               ),
               Text(
                 label,
                 style: TextStyle(
-                  color: isSelected
-                      ? Theme.of(context).colorScheme.primary
-                      : Theme.of(context).colorScheme.onSurface,
+                  color:
+                      isSelected
+                          ? Theme.of(context).colorScheme.primary
+                          : Theme.of(context).colorScheme.onSurface,
                 ),
               ),
             ],
@@ -254,19 +306,19 @@ class GeometryPainter extends CustomPainter {
   void paint(Canvas canvas, Size size) {
     final pointPaint =
         Paint()
-          ..color = Colors.deepPurple
+          ..color = Colors.blueGrey
           ..strokeWidth = 2
           ..style = PaintingStyle.fill;
 
     final linePaint =
         Paint()
-          ..color = Colors.blue
+          ..color = Colors.blueGrey
           ..strokeWidth = 2
           ..style = PaintingStyle.stroke;
 
     final circlePaint =
         Paint()
-          ..color = Colors.green
+          ..color = Colors.blueGrey
           ..strokeWidth = 2
           ..style = PaintingStyle.stroke;
 
@@ -291,4 +343,10 @@ class GeometryPainter extends CustomPainter {
 
   @override
   bool shouldRepaint(GeometryPainter oldDelegate) => true;
+}
+
+double getDistance(Offset position, Point point) {
+  return math.sqrt(
+    math.pow(position.dx - point.x, 2) + math.pow(position.dy - point.y, 2),
+  );
 }
