@@ -62,12 +62,13 @@ class _GeometryCanvasState extends State<GeometryCanvas> {
   GeometryTool _currentTool = GeometryTool.point;
   final List<GeometryObject> _objects = [];
   Point? _tempStartPoint;
-  final double _pointSelectionThreshold = 20.0;
+  // Remove the fixed value
+  late double _pointSelectionThreshold;
 
   // Add variables for panning
   Offset _panOffset = Offset.zero;
   bool _isPanning = false;
-  
+
   // Add a FocusNode to handle keyboard events
   final FocusNode _focusNode = FocusNode();
 
@@ -80,6 +81,12 @@ class _GeometryCanvasState extends State<GeometryCanvas> {
   @override
   Widget build(BuildContext context) {
     final isDarkMode = Theme.of(context).brightness == Brightness.dark;
+
+    // Add these lines to make selection threshold responsive
+    final size = MediaQuery.of(context).size;
+    final minDimension = math.min(size.width, size.height);
+    _pointSelectionThreshold =
+        minDimension * 0.03; // 3% of screen smallest dimension
 
     return Scaffold(
       appBar: AppBar(
@@ -331,6 +338,17 @@ class ToolButton extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
+    // Add these lines for responsive measurements
+    final size = MediaQuery.of(context).size;
+    final minDimension = math.min(size.width, size.height);
+
+    // Calculate responsive sizes
+    final iconSize = minDimension * 0.05;
+    final borderWidth = minDimension * 0.004;
+    final borderRadius = minDimension * 0.015;
+    final innerPadding = minDimension * 0.008;
+    final verticalSpacing = minDimension * 0.008;
+
     return InkWell(
       onTap: onPressed,
       child: Padding(
@@ -340,14 +358,33 @@ class ToolButton extends StatelessWidget {
           child: Column(
             mainAxisSize: MainAxisSize.min,
             children: [
-              Icon(
-                icon,
-                color:
+              Container(
+                decoration:
                     isSelected
-                        ? Theme.of(context).colorScheme.primary
-                        : Theme.of(context).colorScheme.onSurface,
-                size: 28,
+                        ? BoxDecoration(
+                          border: Border.all(
+                            color: Theme.of(context).colorScheme.primary,
+                            width: borderWidth, // Responsive border width
+                          ),
+                          borderRadius: BorderRadius.circular(
+                            borderRadius,
+                          ), // Responsive border radius
+                        )
+                        : null,
+                padding:
+                    isSelected
+                        ? EdgeInsets.all(innerPadding)
+                        : EdgeInsets.zero, // Responsive padding
+                child: Icon(
+                  icon,
+                  color:
+                      isSelected
+                          ? Theme.of(context).colorScheme.primary
+                          : Theme.of(context).colorScheme.onSurface,
+                  size: iconSize, // Responsive icon size
+                ),
               ),
+              SizedBox(height: verticalSpacing), // Responsive spacing
               Text(
                 label,
                 style: TextStyle(
@@ -396,36 +433,50 @@ class GeometryPainter extends CustomPainter {
 
   @override
   void paint(Canvas canvas, Size size) {
+    // Add responsive calculations
+    final minDimension = math.min(size.width, size.height);
+    final pointRadius = minDimension * 0.005;
+    final strokeWidth = minDimension * 0.003;
+
     final pointPaint =
         Paint()
           ..color = Colors.blueGrey
-          ..strokeWidth = 2
+          ..strokeWidth =
+              strokeWidth // Responsive stroke width
           ..style = PaintingStyle.fill;
 
     final linePaint =
         Paint()
           ..color = Colors.blueGrey
-          ..strokeWidth = 2
+          ..strokeWidth =
+              strokeWidth // Responsive stroke width
           ..style = PaintingStyle.stroke;
 
     final circlePaint =
         Paint()
           ..color = Colors.blueGrey
-          ..strokeWidth = 2
+          ..strokeWidth =
+              strokeWidth // Responsive stroke width
           ..style = PaintingStyle.stroke;
 
     canvas.translate(panOffset.dx, panOffset.dy);
 
     for (final object in objects) {
       if (object is Point) {
-        canvas.drawCircle(Offset(object.x, object.y), 5, pointPaint);
+        canvas.drawCircle(
+          Offset(object.x, object.y),
+          pointRadius,
+          pointPaint,
+        ); // Responsive point size
       } else if (object is Line) {
+        // Line drawing remains the same
         canvas.drawLine(
           Offset(object.start.x, object.start.y),
           Offset(object.end.x, object.end.y),
           linePaint,
         );
       } else if (object is Circle) {
+        // Circle drawing remains the same
         canvas.drawCircle(
           Offset(object.center.x, object.center.y),
           object.radius,
