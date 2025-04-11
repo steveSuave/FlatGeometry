@@ -48,7 +48,7 @@ class _GeometryAppState extends State<GeometryApp> {
   }
 }
 
-enum GeometryTool { point, line, circle, pan, select }
+enum GeometryTool { point, line, circle, pan }
 
 class GeometryCanvas extends StatefulWidget {
   final VoidCallback toggleTheme;
@@ -206,11 +206,6 @@ class _GeometryCanvasState extends State<GeometryCanvas> {
             tooltip: 'Redo (->)',
           ),
           IconButton(
-            icon: const Icon(Icons.visibility_off),
-            onPressed: _toggleObjectVisibility,
-            tooltip: 'Hide/Show selected objects (H)',
-          ),
-          IconButton(
             icon: Icon(isDarkMode ? Icons.light_mode : Icons.dark_mode),
             onPressed: widget.toggleTheme,
             tooltip: 'Toggle theme',
@@ -251,12 +246,6 @@ class _GeometryCanvasState extends State<GeometryCanvas> {
               return KeyEventResult.handled;
             } else if (event.logicalKey == LogicalKeyboardKey.arrowRight) {
               _redo();
-              return KeyEventResult.handled;
-            } else if (event.character?.toLowerCase() == 's') {
-              setState(() => _currentTool = GeometryTool.select);
-              return KeyEventResult.handled;
-            } else if (event.character?.toLowerCase() == 'h') {
-              _toggleObjectVisibility();
               return KeyEventResult.handled;
             }
           }
@@ -330,26 +319,6 @@ class _GeometryCanvasState extends State<GeometryCanvas> {
                   isSelected: _currentTool == GeometryTool.pan,
                   onPressed:
                       () => setState(() => _currentTool = GeometryTool.pan),
-                ),
-                ToolButton(
-                  padding: EdgeInsets.symmetric(
-                    vertical: verticalPadding,
-                    horizontal: 16.0,
-                  ),
-                  icon: Icons.select_all,
-                  label: 'Select (S)',
-                  isSelected: _currentTool == GeometryTool.select,
-                  onPressed: () => setState(() => _currentTool = GeometryTool.select),
-                ),
-                ToolButton(
-                  padding: EdgeInsets.symmetric(
-                    vertical: verticalPadding,
-                    horizontal: 16.0,
-                  ),
-                  icon: Icons.visibility_off,
-                  label: 'Hide (H)',
-                  isSelected: false,
-                  onPressed: _toggleObjectVisibility,
                 ),
               ],
             );
@@ -455,9 +424,6 @@ class _GeometryCanvasState extends State<GeometryCanvas> {
       case GeometryTool.pan:
         // Do nothing for pan tool on tap
         break;
-      case GeometryTool.select:
-        _selectObjectAt(position);
-        break;
     }
   }
 
@@ -508,89 +474,6 @@ class _GeometryCanvasState extends State<GeometryCanvas> {
 
   void _handleScaleEnd(ScaleEndDetails details) {
     _isPanning = false;
-  }
-
-  // Add this method inside _GeometryCanvasState class
-  void _toggleObjectVisibility() {
-    bool anySelected = _objects.any((obj) => obj.selected);
-    
-    if (anySelected) {
-      setState(() {
-        for (var obj in _objects) {
-          if (obj.selected) {
-            obj.visible = !obj.visible;
-          }
-        }
-        _addToHistory(_objects);
-      });
-    }
-  }
-
-  // Add this method to select objects
-  void _selectObjectAt(Offset position) {
-    final canvasPosition = _screenToCanvasCoordinates(position);
-    bool selectionMade = false;
-    
-    // Adjust selection threshold for zoom level
-    final adjustedThreshold = _pointSelectionThreshold / _zoomScale;
-    
-    setState(() {
-      for (var obj in _objects) {
-        if (obj is Point) {
-          double distance = math.sqrt(
-            math.pow(canvasPosition.dx - obj.x, 2) +
-            math.pow(canvasPosition.dy - obj.y, 2),
-          );
-          
-          if (distance <= adjustedThreshold) {
-            obj.selected = !obj.selected;
-            selectionMade = true;
-          }
-        } else if (obj is Line) {
-          // Distance from point to line segment calculation
-          final double lineLength = math.sqrt(
-            math.pow(obj.end.x - obj.start.x, 2) +
-            math.pow(obj.end.y - obj.start.y, 2),
-          );
-          
-          if (lineLength > 0) {
-            final double u = ((canvasPosition.dx - obj.start.x) * (obj.end.x - obj.start.x) +
-                          (canvasPosition.dy - obj.start.y) * (obj.end.y - obj.start.y)) /
-                        (lineLength * lineLength);
-            
-            if (u >= 0 && u <= 1) {
-              final double distX = obj.start.x + u * (obj.end.x - obj.start.x) - canvasPosition.dx;
-              final double distY = obj.start.y + u * (obj.end.y - obj.start.y) - canvasPosition.dy;
-              final double distance = math.sqrt(distX * distX + distY * distY);
-              
-              if (distance <= adjustedThreshold) {
-                obj.selected = !obj.selected;
-                selectionMade = true;
-              }
-            }
-          }
-        } else if (obj is Circle) {
-          // Distance from point to circle edge
-          double distToCenter = math.sqrt(
-            math.pow(canvasPosition.dx - obj.center.x, 2) +
-            math.pow(canvasPosition.dy - obj.center.y, 2),
-          );
-          
-          double distToEdge = (distToCenter - obj.radius).abs();
-          if (distToEdge <= adjustedThreshold) {
-            obj.selected = !obj.selected;
-            selectionMade = true;
-          }
-        }
-      }
-      
-      // If no selection was made, deselect all
-      if (!selectionMade) {
-        for (var obj in _objects) {
-          obj.selected = false;
-        }
-      }
-    });
   }
 }
 
@@ -676,10 +559,7 @@ class ToolButton extends StatelessWidget {
   }
 }
 
-abstract class GeometryObject {
-  bool visible = true;
-  bool selected = false;
-}
+abstract class GeometryObject {}
 
 class Point extends GeometryObject {
   final double x;
@@ -739,36 +619,25 @@ class GeometryPainter extends CustomPainter {
     canvas.scale(zoomScale, zoomScale);
 
     for (final object in objects) {
-      if (!object.visible) continue; // Skip invisible objects
-      
-      final Paint paint;
-      if (object.selected) {
-        // Use a different color for selected objects
-        paint = Paint()
-          ..color = Colors.orange
-          ..strokeWidth = strokeWidth * 1.5
-          ..style = object is Point ? PaintingStyle.fill : PaintingStyle.stroke;
-      } else {
-        paint = object is Point ? pointPaint : (object is Line ? linePaint : circlePaint);
-      }
-      
       if (object is Point) {
         canvas.drawCircle(
           Offset(object.x, object.y),
           pointRadius,
-          paint,
-        );
+          pointPaint,
+        ); // Responsive point size
       } else if (object is Line) {
+        // Line drawing remains the same
         canvas.drawLine(
           Offset(object.start.x, object.start.y),
           Offset(object.end.x, object.end.y),
-          paint,
+          linePaint,
         );
       } else if (object is Circle) {
+        // Circle drawing remains the same
         canvas.drawCircle(
           Offset(object.center.x, object.center.y),
           object.radius,
-          paint,
+          circlePaint,
         );
       }
     }
