@@ -1,7 +1,6 @@
 import 'package:flutter/material.dart';
 import 'package:flutter/services.dart';
 import 'dart:math' as math;
-import 'dart:io'; // Add this import for Platform
 
 void main() {
   runApp(const GeometryApp());
@@ -260,6 +259,7 @@ class _GeometryCanvasState extends State<GeometryCanvas> {
           child: Container(
             color: Theme.of(context).colorScheme.surface,
             child: CustomPaint(
+              key: const Key('geometry_canvas'),  // Add this key
               painter: GeometryPainter(_objects, _panOffset, _zoomScale),
               size: Size.infinite,
             ),
