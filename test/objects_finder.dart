@@ -1,6 +1,6 @@
 import 'package:flutter/material.dart';
 import 'package:flutter_test/flutter_test.dart';
-import 'package:geometry_app/main.dart';
+import 'package:geometry_app/painters/geometry_painter.dart';
 
 class GeometryObjectsFinder extends MatchFinder {
   final int expectedCount;
@@ -23,14 +23,15 @@ class GeometryObjectsFinder extends MatchFinder {
   }
 }
 
-Finder findGeometryObjects({required int count}) => GeometryObjectsFinder(expectedCount: count);
+Finder findGeometryObjects({required int count}) =>
+    GeometryObjectsFinder(expectedCount: count);
 
 Finder findGeometryObjectOfType({required Type type, int atIndex = 0}) {
   return find.byWidgetPredicate((widget) {
     if (widget is CustomPaint && widget.painter is GeometryPainter) {
       final painter = widget.painter as GeometryPainter;
-      return painter.objects.length > atIndex && 
-             painter.objects[atIndex].runtimeType == type;
+      return painter.objects.length > atIndex &&
+          painter.objects[atIndex].runtimeType == type;
     }
     return false;
   });
