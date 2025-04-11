@@ -233,7 +233,7 @@ class _GeometryCanvasState extends State<GeometryCanvas> {
                     return ToolButton(
                       padding: EdgeInsets.symmetric(
                         vertical: verticalPadding,
-                        horizontal: 16.0,
+                        horizontal: constraints.maxWidth * 0.02,
                       ),
                       icon: tool.icon,
                       label: tool.tooltip,
