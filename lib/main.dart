@@ -1,4 +1,5 @@
 import 'package:flutter/material.dart';
+import 'package:flutter/services.dart';
 import 'dart:math' as math;
 
 void main() {
@@ -66,6 +67,15 @@ class _GeometryCanvasState extends State<GeometryCanvas> {
   // Add variables for panning
   Offset _panOffset = Offset.zero;
   bool _isPanning = false;
+  
+  // Add a FocusNode to handle keyboard events
+  final FocusNode _focusNode = FocusNode();
+
+  @override
+  void dispose() {
+    _focusNode.dispose();
+    super.dispose();
+  }
 
   @override
   Widget build(BuildContext context) {
@@ -83,17 +93,40 @@ class _GeometryCanvasState extends State<GeometryCanvas> {
           ),
         ],
       ),
-      body: GestureDetector(
-        onTapDown: (details) => _handleTap(details, context),
-        // Add pan gesture handlers
-        onPanStart: _handlePanStart,
-        onPanUpdate: _handlePanUpdate,
-        onPanEnd: _handlePanEnd,
-        child: Container(
-          color: Theme.of(context).colorScheme.surface,
-          child: CustomPaint(
-            painter: GeometryPainter(_objects, _panOffset),
-            size: Size.infinite,
+      body: Focus(
+        focusNode: _focusNode,
+        autofocus: true,
+        onKeyEvent: (node, event) {
+          if (event is KeyDownEvent) {
+            // Handle keyboard shortcuts
+            if (event.character?.toLowerCase() == 'p') {
+              setState(() => _currentTool = GeometryTool.point);
+              return KeyEventResult.handled;
+            } else if (event.character?.toLowerCase() == 'l') {
+              setState(() => _currentTool = GeometryTool.line);
+              return KeyEventResult.handled;
+            } else if (event.character?.toLowerCase() == 'c') {
+              setState(() => _currentTool = GeometryTool.circle);
+              return KeyEventResult.handled;
+            } else if (event.character?.toLowerCase() == 't') {
+              setState(() => _currentTool = GeometryTool.pan);
+              return KeyEventResult.handled;
+            }
+          }
+          return KeyEventResult.ignored;
+        },
+        child: GestureDetector(
+          onTapDown: (details) => _handleTap(details, context),
+          // Add pan gesture handlers
+          onPanStart: _handlePanStart,
+          onPanUpdate: _handlePanUpdate,
+          onPanEnd: _handlePanEnd,
+          child: Container(
+            color: Theme.of(context).colorScheme.surface,
+            child: CustomPaint(
+              painter: GeometryPainter(_objects, _panOffset),
+              size: Size.infinite,
+            ),
           ),
         ),
       ),
@@ -112,7 +145,7 @@ class _GeometryCanvasState extends State<GeometryCanvas> {
                     horizontal: 16.0,
                   ),
                   icon: Icons.fiber_manual_record,
-                  label: 'Point',
+                  label: 'Point (P)',
                   isSelected: _currentTool == GeometryTool.point,
                   onPressed:
                       () => setState(() => _currentTool = GeometryTool.point),
@@ -123,7 +156,7 @@ class _GeometryCanvasState extends State<GeometryCanvas> {
                     horizontal: 16.0,
                   ),
                   icon: Icons.horizontal_rule,
-                  label: 'Line',
+                  label: 'Line (L)',
                   isSelected: _currentTool == GeometryTool.line,
                   onPressed:
                       () => setState(() => _currentTool = GeometryTool.line),
@@ -134,7 +167,7 @@ class _GeometryCanvasState extends State<GeometryCanvas> {
                     horizontal: 16.0,
                   ),
                   icon: Icons.circle_outlined,
-                  label: 'Circle',
+                  label: 'Circle (C)',
                   isSelected: _currentTool == GeometryTool.circle,
                   onPressed:
                       () => setState(() => _currentTool = GeometryTool.circle),
@@ -146,7 +179,7 @@ class _GeometryCanvasState extends State<GeometryCanvas> {
                     horizontal: 16.0,
                   ),
                   icon: Icons.pan_tool,
-                  label: 'Translate',
+                  label: 'Translate (T)',
                   isSelected: _currentTool == GeometryTool.pan,
                   onPressed:
                       () => setState(() => _currentTool = GeometryTool.pan),
