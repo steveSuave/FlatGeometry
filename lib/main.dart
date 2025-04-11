@@ -62,20 +62,64 @@ class _GeometryCanvasState extends State<GeometryCanvas> {
   GeometryTool _currentTool = GeometryTool.point;
   final List<GeometryObject> _objects = [];
   Point? _tempStartPoint;
-  // Remove the fixed value
   late double _pointSelectionThreshold;
 
   // Add variables for panning
   Offset _panOffset = Offset.zero;
   bool _isPanning = false;
 
+  // Add variables for undo/redo
+  final List<List<GeometryObject>> _history = [];
+  int _currentHistoryIndex = -1;
+
   // Add a FocusNode to handle keyboard events
   final FocusNode _focusNode = FocusNode();
+
+  @override
+  void initState() {
+    super.initState();
+    // Initialize history with empty state
+    _addToHistory([]);
+  }
 
   @override
   void dispose() {
     _focusNode.dispose();
     super.dispose();
+  }
+
+  // Add undo/redo methods
+  void _addToHistory(List<GeometryObject> objects) {
+    // Remove any future history if we're not at the end
+    if (_currentHistoryIndex < _history.length - 1) {
+      _history.removeRange(_currentHistoryIndex + 1, _history.length);
+    }
+
+    // Add current state to history
+    _history.add(List.from(objects));
+    _currentHistoryIndex++;
+  }
+
+  void _undo() {
+    if (_currentHistoryIndex > 0) {
+      setState(() {
+        _currentHistoryIndex--;
+        _objects.clear();
+        _objects.addAll(List.from(_history[_currentHistoryIndex]));
+        _tempStartPoint = null;
+      });
+    }
+  }
+
+  void _redo() {
+    if (_currentHistoryIndex < _history.length - 1) {
+      setState(() {
+        _currentHistoryIndex++;
+        _objects.clear();
+        _objects.addAll(List.from(_history[_currentHistoryIndex]));
+        _tempStartPoint = null;
+      });
+    }
   }
 
   @override
@@ -93,6 +137,19 @@ class _GeometryCanvasState extends State<GeometryCanvas> {
         title: const Text('Dynamic Geometry'),
         backgroundColor: Theme.of(context).colorScheme.primaryContainer,
         actions: [
+          // Add undo button
+          IconButton(
+            icon: const Icon(Icons.undo),
+            onPressed: _currentHistoryIndex > 0 ? _undo : null,
+            tooltip: 'Undo (<-)',
+          ),
+          // Add redo button
+          IconButton(
+            icon: const Icon(Icons.redo),
+            onPressed:
+                _currentHistoryIndex < _history.length - 1 ? _redo : null,
+            tooltip: 'Redo (->)',
+          ),
           IconButton(
             icon: Icon(isDarkMode ? Icons.light_mode : Icons.dark_mode),
             onPressed: widget.toggleTheme,
@@ -117,6 +174,12 @@ class _GeometryCanvasState extends State<GeometryCanvas> {
               return KeyEventResult.handled;
             } else if (event.character?.toLowerCase() == 't') {
               setState(() => _currentTool = GeometryTool.pan);
+              return KeyEventResult.handled;
+            } else if (event.logicalKey == LogicalKeyboardKey.arrowLeft) {
+              _undo();
+              return KeyEventResult.handled;
+            } else if (event.logicalKey == LogicalKeyboardKey.arrowRight) {
+              _redo();
               return KeyEventResult.handled;
             }
           }
@@ -239,6 +302,7 @@ class _GeometryCanvasState extends State<GeometryCanvas> {
           // Use the adjusted position for creating new points
           _objects.add(Point(adjustedPosition.dx, adjustedPosition.dy));
           _tempStartPoint = null;
+          _addToHistory(_objects);
         });
         break;
       case GeometryTool.line:
@@ -250,6 +314,7 @@ class _GeometryCanvasState extends State<GeometryCanvas> {
             } else {
               _tempStartPoint = Point(adjustedPosition.dx, adjustedPosition.dy);
               _objects.add(_tempStartPoint!);
+              _addToHistory(_objects);
             }
           });
         } else {
@@ -264,6 +329,7 @@ class _GeometryCanvasState extends State<GeometryCanvas> {
             }
             _objects.add(Line(_tempStartPoint!, endPoint));
             _tempStartPoint = null;
+            _addToHistory(_objects);
           });
         }
         break;
@@ -276,6 +342,7 @@ class _GeometryCanvasState extends State<GeometryCanvas> {
             } else {
               _tempStartPoint = Point(adjustedPosition.dx, adjustedPosition.dy);
               _objects.add(_tempStartPoint!);
+              _addToHistory(_objects);
             }
           });
         } else {
@@ -287,6 +354,7 @@ class _GeometryCanvasState extends State<GeometryCanvas> {
           setState(() {
             _objects.add(Circle(_tempStartPoint!, radius));
             _tempStartPoint = null;
+            _addToHistory(_objects);
           });
         }
         break;
