@@ -1,6 +1,7 @@
 import 'package:flutter/material.dart';
 import 'package:flutter/services.dart';
 import 'dart:math' as math;
+import 'dart:io'; // Add this import for Platform
 
 void main() {
   runApp(const GeometryApp());
@@ -68,6 +69,12 @@ class _GeometryCanvasState extends State<GeometryCanvas> {
   Offset _panOffset = Offset.zero;
   bool _isPanning = false;
 
+  // Add variables for zooming
+  double _zoomScale = 1.0;
+  final double _minZoom = 0.1;
+  final double _maxZoom = 5.0;
+  double _baseScaleFactor = 1.0;
+
   // Add variables for undo/redo
   final List<List<GeometryObject>> _history = [];
   int _currentHistoryIndex = -1;
@@ -122,6 +129,36 @@ class _GeometryCanvasState extends State<GeometryCanvas> {
     }
   }
 
+  // Add zoom methods
+  void _zoomIn() {
+    setState(() {
+      _zoomScale = (_zoomScale * 1.05).clamp(_minZoom, _maxZoom);
+    });
+  }
+
+  void _zoomOut() {
+    setState(() {
+      _zoomScale = (_zoomScale / 1.05).clamp(_minZoom, _maxZoom);
+    });
+  }
+
+  void _resetZoom() {
+    setState(() {
+      _zoomScale = 1.0;
+      _panOffset = Offset.zero;
+    });
+  }
+
+  // Helper method to convert screen to canvas coordinates
+  Offset _screenToCanvasCoordinates(Offset screenPosition) {
+    final panAdjusted = Offset(
+      screenPosition.dx - _panOffset.dx,
+      screenPosition.dy - _panOffset.dy,
+    );
+
+    return Offset(panAdjusted.dx / _zoomScale, panAdjusted.dy / _zoomScale);
+  }
+
   @override
   Widget build(BuildContext context) {
     final isDarkMode = Theme.of(context).brightness == Brightness.dark;
@@ -137,7 +174,25 @@ class _GeometryCanvasState extends State<GeometryCanvas> {
         title: const Text('Dynamic Geometry'),
         backgroundColor: Theme.of(context).colorScheme.primaryContainer,
         actions: [
-          // Add undo button
+          // Add zoom out button
+          // Add zoom in button
+          IconButton(
+            icon: const Icon(Icons.zoom_in),
+            onPressed: _zoomIn,
+            tooltip: 'Zoom in (+)',
+          ),
+          IconButton(
+            icon: const Icon(Icons.zoom_out),
+            onPressed: _zoomOut,
+            tooltip: 'Zoom out (-)',
+          ),
+          // Add zoom reset button
+          IconButton(
+            icon: const Icon(Icons.crop_free),
+            onPressed: _resetZoom,
+            tooltip: 'Reset zoom',
+          ),
+          // Existing buttons
           IconButton(
             icon: const Icon(Icons.undo),
             onPressed: _currentHistoryIndex > 0 ? _undo : null,
@@ -162,7 +217,18 @@ class _GeometryCanvasState extends State<GeometryCanvas> {
         autofocus: true,
         onKeyEvent: (node, event) {
           if (event is KeyDownEvent) {
-            // Handle keyboard shortcuts
+            // Check for zoom shortcuts - now just using plus/minus without modifiers
+            if (event.logicalKey == LogicalKeyboardKey.equal ||
+                event.logicalKey == LogicalKeyboardKey.add) {
+              _zoomIn();
+              return KeyEventResult.handled;
+            } else if (event.logicalKey == LogicalKeyboardKey.minus ||
+                event.logicalKey == LogicalKeyboardKey.numpadSubtract) {
+              _zoomOut();
+              return KeyEventResult.handled;
+            }
+
+            // Handle existing keyboard shortcuts
             if (event.character?.toLowerCase() == 'p') {
               setState(() => _currentTool = GeometryTool.point);
               return KeyEventResult.handled;
@@ -187,14 +253,14 @@ class _GeometryCanvasState extends State<GeometryCanvas> {
         },
         child: GestureDetector(
           onTapDown: (details) => _handleTap(details, context),
-          // Add pan gesture handlers
-          onPanStart: _handlePanStart,
-          onPanUpdate: _handlePanUpdate,
-          onPanEnd: _handlePanEnd,
+          // Add scale gesture handlers
+          onScaleStart: _handleScaleStart,
+          onScaleUpdate: _handleScaleUpdate,
+          onScaleEnd: _handleScaleEnd,
           child: Container(
             color: Theme.of(context).colorScheme.surface,
             child: CustomPaint(
-              painter: GeometryPainter(_objects, _panOffset),
+              painter: GeometryPainter(_objects, _panOffset, _zoomScale),
               size: Size.infinite,
             ),
           ),
@@ -264,43 +330,40 @@ class _GeometryCanvasState extends State<GeometryCanvas> {
 
   // Helper method to find nearby points
   Point? _findNearbyPoint(Offset position) {
-    // Adjust the position by the inverse of the pan offset
-    final adjustedPosition = Offset(
-      position.dx - _panOffset.dx,
-      position.dy - _panOffset.dy,
-    );
+    // Convert screen position to canvas coordinates
+    final canvasPosition = _screenToCanvasCoordinates(position);
+
+    // Adjust the threshold for zoom level
+    final adjustedThreshold = _pointSelectionThreshold / _zoomScale;
 
     for (var object in _objects) {
       if (object is Point) {
-        // Calculate distance between the adjusted tap position and this point
-        double distance = getDistance(adjustedPosition, object);
+        // Calculate distance using canvas coordinates
+        double distance = math.sqrt(
+          math.pow(canvasPosition.dx - object.x, 2) +
+              math.pow(canvasPosition.dy - object.y, 2),
+        );
 
-        // If the tap is close enough to this point, return it
-        if (distance <= _pointSelectionThreshold) {
+        if (distance <= adjustedThreshold) {
           return object;
         }
       }
     }
-    // No nearby point found
     return null;
   }
 
   void _handleTap(TapDownDetails details, BuildContext context) {
     final position = details.localPosition;
-    // Adjust the position by the inverse of the pan offset
-    final adjustedPosition = Offset(
-      position.dx - _panOffset.dx,
-      position.dy - _panOffset.dy,
-    );
+    final canvasPosition = _screenToCanvasCoordinates(position);
 
-    // Check if there's a nearby existing point using the original position
+    // Check for nearby points using the original position
     final nearbyPoint = _findNearbyPoint(position);
 
     switch (_currentTool) {
       case GeometryTool.point:
         setState(() {
-          // Use the adjusted position for creating new points
-          _objects.add(Point(adjustedPosition.dx, adjustedPosition.dy));
+          // Use canvas coordinates for creating new points
+          _objects.add(Point(canvasPosition.dx, canvasPosition.dy));
           _tempStartPoint = null;
           _addToHistory(_objects);
         });
@@ -308,11 +371,11 @@ class _GeometryCanvasState extends State<GeometryCanvas> {
       case GeometryTool.line:
         if (_tempStartPoint == null) {
           setState(() {
-            // Use nearby point or create a new one with adjusted position
+            // Use nearby point or create a new one with canvas coordinates
             if (nearbyPoint != null) {
               _tempStartPoint = nearbyPoint;
             } else {
-              _tempStartPoint = Point(adjustedPosition.dx, adjustedPosition.dy);
+              _tempStartPoint = Point(canvasPosition.dx, canvasPosition.dy);
               _objects.add(_tempStartPoint!);
               _addToHistory(_objects);
             }
@@ -324,7 +387,7 @@ class _GeometryCanvasState extends State<GeometryCanvas> {
             if (nearbyPoint != null) {
               endPoint = nearbyPoint;
             } else {
-              endPoint = Point(adjustedPosition.dx, adjustedPosition.dy);
+              endPoint = Point(canvasPosition.dx, canvasPosition.dy);
               _objects.add(endPoint);
             }
             _objects.add(Line(_tempStartPoint!, endPoint));
@@ -336,11 +399,11 @@ class _GeometryCanvasState extends State<GeometryCanvas> {
       case GeometryTool.circle:
         if (_tempStartPoint == null) {
           setState(() {
-            // Use nearby point or create a new one with adjusted position
+            // Use nearby point or create a new one with canvas coordinates
             if (nearbyPoint != null) {
               _tempStartPoint = nearbyPoint;
             } else {
-              _tempStartPoint = Point(adjustedPosition.dx, adjustedPosition.dy);
+              _tempStartPoint = Point(canvasPosition.dx, canvasPosition.dy);
               _objects.add(_tempStartPoint!);
               _addToHistory(_objects);
             }
@@ -349,7 +412,7 @@ class _GeometryCanvasState extends State<GeometryCanvas> {
           Offset secondPoint =
               nearbyPoint != null
                   ? Offset(nearbyPoint.x, nearbyPoint.y)
-                  : adjustedPosition;
+                  : canvasPosition;
           final radius = getDistance(secondPoint, _tempStartPoint!);
           setState(() {
             _objects.add(Circle(_tempStartPoint!, radius));
@@ -385,6 +448,32 @@ class _GeometryCanvasState extends State<GeometryCanvas> {
     setState(() {
       _isPanning = false;
     });
+  }
+
+  // Add methods for scale handling
+  void _handleScaleStart(ScaleStartDetails details) {
+    _baseScaleFactor = _zoomScale;
+    _isPanning = false;
+  }
+
+  void _handleScaleUpdate(ScaleUpdateDetails details) {
+    setState(() {
+      if (details.scale != 1.0) {
+        // Handle zooming
+        _zoomScale = (_baseScaleFactor * details.scale).clamp(
+          _minZoom,
+          _maxZoom,
+        );
+      } else if (_currentTool == GeometryTool.pan) {
+        // Handle panning
+        _isPanning = true;
+        _panOffset += details.focalPointDelta;
+      }
+    });
+  }
+
+  void _handleScaleEnd(ScaleEndDetails details) {
+    _isPanning = false;
   }
 }
 
@@ -496,8 +585,9 @@ class Circle extends GeometryObject {
 class GeometryPainter extends CustomPainter {
   final List<GeometryObject> objects;
   final Offset panOffset;
+  final double zoomScale;
 
-  GeometryPainter(this.objects, this.panOffset);
+  GeometryPainter(this.objects, this.panOffset, this.zoomScale);
 
   @override
   void paint(Canvas canvas, Size size) {
@@ -509,25 +599,24 @@ class GeometryPainter extends CustomPainter {
     final pointPaint =
         Paint()
           ..color = Colors.blueGrey
-          ..strokeWidth =
-              strokeWidth // Responsive stroke width
+          ..strokeWidth = strokeWidth
           ..style = PaintingStyle.fill;
 
     final linePaint =
         Paint()
           ..color = Colors.blueGrey
-          ..strokeWidth =
-              strokeWidth // Responsive stroke width
+          ..strokeWidth = strokeWidth
           ..style = PaintingStyle.stroke;
 
     final circlePaint =
         Paint()
           ..color = Colors.blueGrey
-          ..strokeWidth =
-              strokeWidth // Responsive stroke width
+          ..strokeWidth = strokeWidth
           ..style = PaintingStyle.stroke;
 
+    // Apply transformations: first translate, then scale
     canvas.translate(panOffset.dx, panOffset.dy);
+    canvas.scale(zoomScale, zoomScale);
 
     for (final object in objects) {
       if (object is Point) {
@@ -556,7 +645,9 @@ class GeometryPainter extends CustomPainter {
 
   @override
   bool shouldRepaint(GeometryPainter oldDelegate) =>
-      oldDelegate.objects != objects || oldDelegate.panOffset != panOffset;
+      oldDelegate.objects != objects ||
+      oldDelegate.panOffset != panOffset ||
+      oldDelegate.zoomScale != zoomScale;
 }
 
 double getDistance(Offset position, Point point) {
