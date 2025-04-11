@@ -46,7 +46,7 @@ class _GeometryAppState extends State<GeometryApp> {
   }
 }
 
-enum GeometryTool { point, line, circle }
+enum GeometryTool { point, line, circle, pan }
 
 class GeometryCanvas extends StatefulWidget {
   final VoidCallback toggleTheme;
@@ -61,8 +61,11 @@ class _GeometryCanvasState extends State<GeometryCanvas> {
   GeometryTool _currentTool = GeometryTool.point;
   final List<GeometryObject> _objects = [];
   Point? _tempStartPoint;
-  final double _pointSelectionThreshold =
-      20.0; // Distance threshold for point snapping
+  final double _pointSelectionThreshold = 20.0;
+
+  // Add variables for panning
+  Offset _panOffset = Offset.zero;
+  bool _isPanning = false;
 
   @override
   Widget build(BuildContext context) {
@@ -82,10 +85,14 @@ class _GeometryCanvasState extends State<GeometryCanvas> {
       ),
       body: GestureDetector(
         onTapDown: (details) => _handleTap(details, context),
+        // Add pan gesture handlers
+        onPanStart: _handlePanStart,
+        onPanUpdate: _handlePanUpdate,
+        onPanEnd: _handlePanEnd,
         child: Container(
           color: Theme.of(context).colorScheme.surface,
           child: CustomPaint(
-            painter: GeometryPainter(_objects),
+            painter: GeometryPainter(_objects, _panOffset),
             size: Size.infinite,
           ),
         ),
@@ -132,6 +139,18 @@ class _GeometryCanvasState extends State<GeometryCanvas> {
                   onPressed:
                       () => setState(() => _currentTool = GeometryTool.circle),
                 ),
+                // Add the pan tool button
+                ToolButton(
+                  padding: EdgeInsets.symmetric(
+                    vertical: verticalPadding,
+                    horizontal: 16.0,
+                  ),
+                  icon: Icons.pan_tool,
+                  label: 'Translate',
+                  isSelected: _currentTool == GeometryTool.pan,
+                  onPressed:
+                      () => setState(() => _currentTool = GeometryTool.pan),
+                ),
               ],
             );
           },
@@ -142,10 +161,16 @@ class _GeometryCanvasState extends State<GeometryCanvas> {
 
   // Helper method to find nearby points
   Point? _findNearbyPoint(Offset position) {
+    // Adjust the position by the inverse of the pan offset
+    final adjustedPosition = Offset(
+      position.dx - _panOffset.dx,
+      position.dy - _panOffset.dy,
+    );
+
     for (var object in _objects) {
       if (object is Point) {
-        // Calculate distance between tap position and this point
-        double distance = getDistance(position, object);
+        // Calculate distance between the adjusted tap position and this point
+        double distance = getDistance(adjustedPosition, object);
 
         // If the tap is close enough to this point, return it
         if (distance <= _pointSelectionThreshold) {
@@ -159,24 +184,31 @@ class _GeometryCanvasState extends State<GeometryCanvas> {
 
   void _handleTap(TapDownDetails details, BuildContext context) {
     final position = details.localPosition;
-    // Check if there's a nearby existing point
+    // Adjust the position by the inverse of the pan offset
+    final adjustedPosition = Offset(
+      position.dx - _panOffset.dx,
+      position.dy - _panOffset.dy,
+    );
+
+    // Check if there's a nearby existing point using the original position
     final nearbyPoint = _findNearbyPoint(position);
 
     switch (_currentTool) {
       case GeometryTool.point:
         setState(() {
-          _objects.add(Point(position.dx, position.dy));
+          // Use the adjusted position for creating new points
+          _objects.add(Point(adjustedPosition.dx, adjustedPosition.dy));
           _tempStartPoint = null;
         });
         break;
       case GeometryTool.line:
         if (_tempStartPoint == null) {
           setState(() {
-            // Use nearby point or create a new one
+            // Use nearby point or create a new one with adjusted position
             if (nearbyPoint != null) {
               _tempStartPoint = nearbyPoint;
             } else {
-              _tempStartPoint = Point(position.dx, position.dy);
+              _tempStartPoint = Point(adjustedPosition.dx, adjustedPosition.dy);
               _objects.add(_tempStartPoint!);
             }
           });
@@ -187,7 +219,7 @@ class _GeometryCanvasState extends State<GeometryCanvas> {
             if (nearbyPoint != null) {
               endPoint = nearbyPoint;
             } else {
-              endPoint = Point(position.dx, position.dy);
+              endPoint = Point(adjustedPosition.dx, adjustedPosition.dy);
               _objects.add(endPoint);
             }
             _objects.add(Line(_tempStartPoint!, endPoint));
@@ -198,11 +230,11 @@ class _GeometryCanvasState extends State<GeometryCanvas> {
       case GeometryTool.circle:
         if (_tempStartPoint == null) {
           setState(() {
-            // Use nearby point or create a new one for circle center
+            // Use nearby point or create a new one with adjusted position
             if (nearbyPoint != null) {
               _tempStartPoint = nearbyPoint;
             } else {
-              _tempStartPoint = Point(position.dx, position.dy);
+              _tempStartPoint = Point(adjustedPosition.dx, adjustedPosition.dy);
               _objects.add(_tempStartPoint!);
             }
           });
@@ -210,7 +242,7 @@ class _GeometryCanvasState extends State<GeometryCanvas> {
           Offset secondPoint =
               nearbyPoint != null
                   ? Offset(nearbyPoint.x, nearbyPoint.y)
-                  : position;
+                  : adjustedPosition;
           final radius = getDistance(secondPoint, _tempStartPoint!);
           setState(() {
             _objects.add(Circle(_tempStartPoint!, radius));
@@ -218,7 +250,33 @@ class _GeometryCanvasState extends State<GeometryCanvas> {
           });
         }
         break;
+      case GeometryTool.pan:
+        // Do nothing for pan tool on tap
+        break;
     }
+  }
+
+  // Add methods for pan handling
+  void _handlePanStart(DragStartDetails details) {
+    if (_currentTool == GeometryTool.pan) {
+      setState(() {
+        _isPanning = true;
+      });
+    }
+  }
+
+  void _handlePanUpdate(DragUpdateDetails details) {
+    if (_currentTool == GeometryTool.pan && _isPanning) {
+      setState(() {
+        _panOffset += details.delta;
+      });
+    }
+  }
+
+  void _handlePanEnd(DragEndDetails details) {
+    setState(() {
+      _isPanning = false;
+    });
   }
 }
 
@@ -299,8 +357,9 @@ class Circle extends GeometryObject {
 
 class GeometryPainter extends CustomPainter {
   final List<GeometryObject> objects;
+  final Offset panOffset;
 
-  GeometryPainter(this.objects);
+  GeometryPainter(this.objects, this.panOffset);
 
   @override
   void paint(Canvas canvas, Size size) {
@@ -322,6 +381,8 @@ class GeometryPainter extends CustomPainter {
           ..strokeWidth = 2
           ..style = PaintingStyle.stroke;
 
+    canvas.translate(panOffset.dx, panOffset.dy);
+
     for (final object in objects) {
       if (object is Point) {
         canvas.drawCircle(Offset(object.x, object.y), 5, pointPaint);
@@ -342,7 +403,8 @@ class GeometryPainter extends CustomPainter {
   }
 
   @override
-  bool shouldRepaint(GeometryPainter oldDelegate) => true;
+  bool shouldRepaint(GeometryPainter oldDelegate) =>
+      oldDelegate.objects != objects || oldDelegate.panOffset != panOffset;
 }
 
 double getDistance(Offset position, Point point) {
