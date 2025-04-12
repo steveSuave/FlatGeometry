@@ -1,5 +1,4 @@
 import 'package:flutter/material.dart';
-import 'package:flutter/services.dart';
 import 'tool_definition.dart';
 import 'geometry_tool.dart';
 

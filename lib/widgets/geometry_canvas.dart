@@ -225,7 +225,7 @@ class _GeometryCanvasState extends State<GeometryCanvas> {
         child: LayoutBuilder(
           builder: (context, constraints) {
             // Calculate vertical padding as 20% of the BottomAppBar's height
-            final verticalPadding = constraints.maxHeight * 0.2;
+            final verticalPadding = constraints.maxHeight * 0.1;
             return Row(
               mainAxisAlignment: MainAxisAlignment.spaceEvenly,
               children:
@@ -259,10 +259,7 @@ class _GeometryCanvasState extends State<GeometryCanvas> {
     for (var object in _objects) {
       if (object is Point) {
         // Calculate distance using canvas coordinates
-        double distance = math.sqrt(
-          math.pow(canvasPosition.dx - object.x, 2) +
-              math.pow(canvasPosition.dy - object.y, 2),
-        );
+        double distance = getDistance(canvasPosition, object);
 
         if (distance <= adjustedThreshold) {
           return object;
