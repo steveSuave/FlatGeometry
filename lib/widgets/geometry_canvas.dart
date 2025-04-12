@@ -134,7 +134,7 @@ class _GeometryCanvasState extends State<GeometryCanvas> {
 
     return Scaffold(
       appBar: AppBar(
-        title: const Text('Dynamic Geometry'),
+        title: const Text('Flat Geometry'),
         backgroundColor: Theme.of(context).colorScheme.primaryContainer,
         actions: [
           IconButton(
@@ -186,19 +186,19 @@ class _GeometryCanvasState extends State<GeometryCanvas> {
               return KeyEventResult.handled;
             }
 
-            // Handle tool shortcuts using registry
-            final tool = _toolRegistry.findToolForKeyEvent(event);
-            if (tool != null) {
-              setState(() => _currentTool = tool.type);
-              return KeyEventResult.handled;
-            }
-
             // Handle undo/redo shortcuts
             if (event.logicalKey == LogicalKeyboardKey.arrowLeft) {
               _undo();
               return KeyEventResult.handled;
             } else if (event.logicalKey == LogicalKeyboardKey.arrowRight) {
               _redo();
+              return KeyEventResult.handled;
+            }
+
+            // Handle tool shortcuts using registry
+            final tool = _toolRegistry.findToolForKeyEvent(event);
+            if (tool != null) {
+              setState(() => _currentTool = tool.type);
               return KeyEventResult.handled;
             }
           }
@@ -259,10 +259,7 @@ class _GeometryCanvasState extends State<GeometryCanvas> {
     for (var object in _objects) {
       if (object is Point) {
         // Calculate distance using canvas coordinates
-        double distance = math.sqrt(
-          math.pow(canvasPosition.dx - object.x, 2) +
-              math.pow(canvasPosition.dy - object.y, 2),
-        );
+        double distance = getDistance(canvasPosition, object);
 
         if (distance <= adjustedThreshold) {
           return object;

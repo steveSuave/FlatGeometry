@@ -1,7 +1,6 @@
 import 'package:flutter/material.dart';
 import 'package:flutter_test/flutter_test.dart';
 import 'package:flutter/services.dart';
-import 'package:geometry_app/main.dart';
 import 'package:geometry_app/app/geometry_app.dart';
 import 'package:geometry_app/widgets/geometry_canvas.dart';
 import 'package:geometry_app/widgets/tool_button.dart';

@@ -18,25 +18,23 @@ class _GeometryAppState extends State<GeometryApp> {
     });
   }
 
+  ThemeData _buildThemeData(Brightness brightness) {
+    return ThemeData(
+      colorScheme: ColorScheme.fromSeed(
+        seedColor: Colors.blue,
+        brightness: brightness,
+      ),
+      useMaterial3: true,
+    );
+  }
+
   @override
   Widget build(BuildContext context) {
     return MaterialApp(
       title: 'Dynamic Geometry',
       themeMode: _themeMode,
-      theme: ThemeData(
-        colorScheme: ColorScheme.fromSeed(
-          seedColor: Colors.blue,
-          brightness: Brightness.light,
-        ),
-        useMaterial3: true,
-      ),
-      darkTheme: ThemeData(
-        colorScheme: ColorScheme.fromSeed(
-          seedColor: Colors.blue,
-          brightness: Brightness.dark,
-        ),
-        useMaterial3: true,
-      ),
+      theme: _buildThemeData(Brightness.light),
+      darkTheme: _buildThemeData(Brightness.dark),
       home: GeometryCanvas(toggleTheme: toggleTheme),
     );
   }
