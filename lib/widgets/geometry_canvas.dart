@@ -1,15 +1,19 @@
 import 'package:flutter/material.dart';
 import 'package:flutter/services.dart';
+import 'package:geometry_app/commands/geometry_canvas_context.dart';
 import 'dart:math' as math;
 import '../models/geometry_object.dart';
 import '../models/point.dart';
-import '../models/line.dart';
-import '../models/circle.dart';
 import '../tools/geometry_tool.dart';
 import '../tools/tool_registry.dart';
 import '../painters/geometry_painter.dart';
 import '../utils/math_utils.dart';
 import 'tool_button.dart';
+import '../commands/geometry_command.dart';
+import '../commands/point_command.dart';
+import '../commands/line_command.dart';
+import '../commands/circle_command.dart';
+import '../commands/pan_command.dart';
 
 class GeometryCanvas extends StatefulWidget {
   final VoidCallback toggleTheme;
@@ -20,13 +24,21 @@ class GeometryCanvas extends StatefulWidget {
   State<GeometryCanvas> createState() => _GeometryCanvasState();
 }
 
-class _GeometryCanvasState extends State<GeometryCanvas> {
+class _GeometryCanvasState extends State<GeometryCanvas> implements GeometryCanvasContext {
+  // Make objects and addToHistory accessible to commands
+  @override
+  List<GeometryObject> get objects => _objects;
+  @override
+  void addToHistory(List<GeometryObject> objects) => _addToHistory(objects);
+
   // Get the tool registry
   final _toolRegistry = ToolRegistry.instance;
   GeometryTool _currentTool = GeometryTool.point;
   final List<GeometryObject> _objects = [];
-  Point? _tempStartPoint;
   late double _pointSelectionThreshold;
+
+  // Command pattern implementation
+  late final Map<GeometryTool, GeometryCommand> _commands;
 
   // Add variables for panning
   Offset _panOffset = Offset.zero;
@@ -48,6 +60,15 @@ class _GeometryCanvasState extends State<GeometryCanvas> {
   @override
   void initState() {
     super.initState();
+
+    // Initialize commands
+    _commands = {
+      GeometryTool.point: PointCommand(),
+      GeometryTool.line: LineCommand(),
+      GeometryTool.circle: CircleCommand(),
+      GeometryTool.pan: PanCommand(),
+    };
+
     // Initialize history with empty state
     _addToHistory([]);
   }
@@ -76,7 +97,9 @@ class _GeometryCanvasState extends State<GeometryCanvas> {
         _currentHistoryIndex--;
         _objects.clear();
         _objects.addAll(List.from(_history[_currentHistoryIndex]));
-        _tempStartPoint = null;
+
+        // Reset all commands when undoing
+        _commands.values.forEach((command) => command.reset());
       });
     }
   }
@@ -87,7 +110,9 @@ class _GeometryCanvasState extends State<GeometryCanvas> {
         _currentHistoryIndex++;
         _objects.clear();
         _objects.addAll(List.from(_history[_currentHistoryIndex]));
-        _tempStartPoint = null;
+
+        // Reset all commands when redoing
+        _commands.values.forEach((command) => command.reset());
       });
     }
   }
@@ -120,6 +145,15 @@ class _GeometryCanvasState extends State<GeometryCanvas> {
     );
 
     return Offset(panAdjusted.dx / _zoomScale, panAdjusted.dy / _zoomScale);
+  }
+
+  // Method to change tools
+  void _selectTool(GeometryTool tool) {
+    if (_currentTool != tool) {
+      // Reset the current command when changing tools
+      _commands[_currentTool]!.reset();
+      setState(() => _currentTool = tool);
+    }
   }
 
   @override
@@ -228,19 +262,18 @@ class _GeometryCanvasState extends State<GeometryCanvas> {
             final verticalPadding = constraints.maxHeight * 0.2;
             return Row(
               mainAxisAlignment: MainAxisAlignment.spaceEvenly,
-              children:
-                  _toolRegistry.tools.map((tool) {
-                    return ToolButton(
-                      padding: EdgeInsets.symmetric(
-                        vertical: verticalPadding,
-                        horizontal: constraints.maxWidth * 0.02,
-                      ),
-                      icon: tool.icon,
-                      label: tool.tooltip,
-                      isSelected: _currentTool == tool.type,
-                      onPressed: () => setState(() => _currentTool = tool.type),
-                    );
-                  }).toList(),
+              children: _toolRegistry.tools.map((tool) {
+                return ToolButton(
+                  padding: EdgeInsets.symmetric(
+                    vertical: verticalPadding,
+                    horizontal: constraints.maxWidth * 0.02,
+                  ),
+                  icon: tool.icon,
+                  label: tool.tooltip,
+                  isSelected: _currentTool == tool.type,
+                  onPressed: () => _selectTool(tool.type),
+                );
+              }).toList(),
             );
           },
         ),
@@ -269,79 +302,14 @@ class _GeometryCanvasState extends State<GeometryCanvas> {
     return null;
   }
 
+  // Updated to use command pattern
   void _handleTap(TapDownDetails details, BuildContext context) {
     final position = details.localPosition;
     final canvasPosition = _screenToCanvasCoordinates(position);
-
-    // Check for nearby points using the original position
     final nearbyPoint = _findNearbyPoint(position);
 
-    switch (_currentTool) {
-      case GeometryTool.point:
-        setState(() {
-          // Use canvas coordinates for creating new points
-          _objects.add(Point(canvasPosition.dx, canvasPosition.dy));
-          _tempStartPoint = null;
-          _addToHistory(_objects);
-        });
-        break;
-      case GeometryTool.line:
-        if (_tempStartPoint == null) {
-          setState(() {
-            // Use nearby point or create a new one with canvas coordinates
-            if (nearbyPoint != null) {
-              _tempStartPoint = nearbyPoint;
-            } else {
-              _tempStartPoint = Point(canvasPosition.dx, canvasPosition.dy);
-              _objects.add(_tempStartPoint!);
-              _addToHistory(_objects);
-            }
-          });
-        } else {
-          setState(() {
-            // Use nearby point or create a new one for end point
-            Point endPoint;
-            if (nearbyPoint != null) {
-              endPoint = nearbyPoint;
-            } else {
-              endPoint = Point(canvasPosition.dx, canvasPosition.dy);
-              _objects.add(endPoint);
-            }
-            _objects.add(Line(_tempStartPoint!, endPoint));
-            _tempStartPoint = null;
-            _addToHistory(_objects);
-          });
-        }
-        break;
-      case GeometryTool.circle:
-        if (_tempStartPoint == null) {
-          setState(() {
-            // Use nearby point or create a new one with canvas coordinates
-            if (nearbyPoint != null) {
-              _tempStartPoint = nearbyPoint;
-            } else {
-              _tempStartPoint = Point(canvasPosition.dx, canvasPosition.dy);
-              _objects.add(_tempStartPoint!);
-              _addToHistory(_objects);
-            }
-          });
-        } else {
-          Offset secondPoint =
-              nearbyPoint != null
-                  ? Offset(nearbyPoint.x, nearbyPoint.y)
-                  : canvasPosition;
-          final radius = getDistance(secondPoint, _tempStartPoint!);
-          setState(() {
-            _objects.add(Circle(_tempStartPoint!, radius));
-            _tempStartPoint = null;
-            _addToHistory(_objects);
-          });
-        }
-        break;
-      case GeometryTool.pan:
-        // Do nothing for pan tool on tap
-        break;
-    }
+    // Use the command for the current tool
+    _commands[_currentTool]?.execute(this, canvasPosition, nearbyPoint);
   }
 
   // Add methods for pan handling
