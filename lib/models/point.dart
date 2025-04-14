@@ -13,17 +13,18 @@ class Point extends GeometryObject {
   void draw(Canvas canvas, Size size, double zoomScale) {
     final pointRadius = getRelativeSize(size, 0.005);
     canvas.drawCircle(Offset(x, y), pointRadius, createFillPaint(size));
-    
+
     // Draw selection indicator when selected
     if (isSelected) {
       final highlightRadius = pointRadius * 1.5;
-      final highlightPaint = Paint()
-        ..color = Colors.red.withAlpha(76) // ~0.3 opacity
-        ..style = PaintingStyle.fill;
+      final highlightPaint =
+          Paint()
+            ..color = Colors.red.withAlpha(76) // ~0.3 opacity
+            ..style = PaintingStyle.fill;
       canvas.drawCircle(Offset(x, y), highlightRadius, highlightPaint);
     }
   }
-  
+
   @override
   bool containsPoint(Offset point, double threshold) {
     final distance = math.sqrt(
@@ -31,7 +32,7 @@ class Point extends GeometryObject {
     );
     return distance <= threshold;
   }
-  
+
   @override
   void applyDrag(Offset delta, DragMode mode, [Offset? absolutePosition]) {
     // Points only support move mode

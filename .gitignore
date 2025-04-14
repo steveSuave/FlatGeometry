@@ -46,3 +46,5 @@ app.*.map.json
 
 # add vscode workspace as ignored
 geometry_app.code-workspace
+scratch/scratch.txt
+scratch/refactor.txt

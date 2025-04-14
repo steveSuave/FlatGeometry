@@ -1,13 +1,17 @@
 import 'package:flutter/material.dart';
 import 'package:flutter_test/flutter_test.dart';
 import 'package:flutter/services.dart';
+import 'package:provider/provider.dart';
 import 'package:geometry_app/app/geometry_app.dart';
 import 'package:geometry_app/widgets/geometry_canvas.dart';
 import 'package:geometry_app/widgets/tool_button.dart';
-import 'package:geometry_app/painters/geometry_painter.dart';
+import 'package:geometry_app/models/geometry_state.dart';
+import 'package:geometry_app/models/theme_state.dart';
 import 'package:geometry_app/models/point.dart';
 import 'package:geometry_app/models/line.dart';
+import 'package:geometry_app/models/circle.dart';
 import 'package:geometry_app/utils/math_utils.dart';
+import 'package:geometry_app/painters/geometry_painter.dart';
 import 'dart:math' as math;
 
 void main() {
@@ -15,7 +19,15 @@ void main() {
     testWidgets('should render with light theme by default', (
       WidgetTester tester,
     ) async {
-      await tester.pumpWidget(const GeometryApp());
+      await tester.pumpWidget(
+        MultiProvider(
+          providers: [
+            ChangeNotifierProvider(create: (_) => GeometryState()),
+            ChangeNotifierProvider(create: (_) => ThemeState()),
+          ],
+          child: const GeometryApp(),
+        ),
+      );
 
       final materialApp = tester.widget<MaterialApp>(find.byType(MaterialApp));
       expect(materialApp.themeMode, ThemeMode.light);
@@ -24,7 +36,15 @@ void main() {
     testWidgets('should toggle theme when theme button is pressed', (
       WidgetTester tester,
     ) async {
-      await tester.pumpWidget(const GeometryApp());
+      await tester.pumpWidget(
+        MultiProvider(
+          providers: [
+            ChangeNotifierProvider(create: (_) => GeometryState()),
+            ChangeNotifierProvider(create: (_) => ThemeState()),
+          ],
+          child: const GeometryApp(),
+        ),
+      );
 
       // Find and tap the theme toggle button
       final themeButtonFinder = find.byTooltip('Toggle theme');
@@ -38,12 +58,20 @@ void main() {
   });
 
   group('GeometryCanvas', () {
+    Widget createTestApp() {
+      return MultiProvider(
+        providers: [
+          ChangeNotifierProvider(create: (_) => GeometryState()),
+          ChangeNotifierProvider(create: (_) => ThemeState()),
+        ],
+        child: const MaterialApp(home: GeometryCanvas()),
+      );
+    }
+
     testWidgets('should start with point tool selected by default', (
       WidgetTester tester,
     ) async {
-      await tester.pumpWidget(
-        MaterialApp(home: GeometryCanvas(toggleTheme: () {})),
-      );
+      await tester.pumpWidget(createTestApp());
 
       // Find tool buttons
       final pointToolButton = find.text('Point (P)');
@@ -64,9 +92,7 @@ void main() {
     testWidgets('should change tool when tool button is pressed', (
       WidgetTester tester,
     ) async {
-      await tester.pumpWidget(
-        MaterialApp(home: GeometryCanvas(toggleTheme: () {})),
-      );
+      await tester.pumpWidget(createTestApp());
 
       // Find the line tool button and tap it
       final lineToolButton = find.text('Line (L)');
@@ -89,9 +115,7 @@ void main() {
     testWidgets('should create point on canvas tap', (
       WidgetTester tester,
     ) async {
-      await tester.pumpWidget(
-        MaterialApp(home: GeometryCanvas(toggleTheme: () {})),
-      );
+      await tester.pumpWidget(createTestApp());
 
       // Find the canvas using the key
       final canvasFinder = find.byKey(const Key('geometry_canvas'));
@@ -100,23 +124,19 @@ void main() {
       await tester.tap(canvasFinder);
       await tester.pump();
 
-      // Find the CustomPaint widget
-      final customPaint = tester.widget<CustomPaint>(
-        find.byKey(const Key('geometry_canvas')),
-      );
-      final painter = customPaint.painter as GeometryPainter;
+      // Get the state directly
+      final state =
+          tester.element(find.byType(GeometryCanvas)).read<GeometryState>();
 
       // Verify a point was created
-      expect(painter.objects.length, 1);
-      expect(painter.objects.first is Point, true);
+      expect(state.objects.length, 1);
+      expect(state.objects.first is Point, true);
     });
 
     testWidgets('should handle keyboard shortcuts for tools', (
       WidgetTester tester,
     ) async {
-      await tester.pumpWidget(
-        MaterialApp(home: GeometryCanvas(toggleTheme: () {})),
-      );
+      await tester.pumpWidget(createTestApp());
 
       // Focus the canvas
       final canvas = find.byType(Focus).first;
@@ -147,9 +167,7 @@ void main() {
     testWidgets('should create line with two taps', (
       WidgetTester tester,
     ) async {
-      await tester.pumpWidget(
-        MaterialApp(home: GeometryCanvas(toggleTheme: () {})),
-      );
+      await tester.pumpWidget(createTestApp());
 
       // Change to line tool
       final lineToolButton = find.text('Line (L)');
@@ -168,21 +186,17 @@ void main() {
       await tester.tapAt(canvasCenter.translate(50, 50));
       await tester.pump();
 
-      // Get the CustomPaint widget and its painter
-      final customPaint = tester.widget<CustomPaint>(
-        find.byKey(const Key('geometry_canvas')),
-      );
-      final painter = customPaint.painter as GeometryPainter;
+      // Get the state directly
+      final state =
+          tester.element(find.byType(GeometryCanvas)).read<GeometryState>();
 
       // Verify objects were created (2 points + 1 line = 3 objects)
-      expect(painter.objects.length, 3);
-      expect(painter.objects.last is Line, true);
+      expect(state.objects.length, 3);
+      expect(state.objects.last is Line, true);
     });
 
     testWidgets('should handle undo correctly', (WidgetTester tester) async {
-      await tester.pumpWidget(
-        MaterialApp(home: GeometryCanvas(toggleTheme: () {})),
-      );
+      await tester.pumpWidget(createTestApp());
 
       // Create a point using the keyed canvas
       final canvasFinder = find.byKey(const Key('geometry_canvas'));
@@ -194,14 +208,134 @@ void main() {
       await tester.tap(undoButton);
       await tester.pump();
 
-      // Get the CustomPaint widget and its painter
-      final customPaint = tester.widget<CustomPaint>(
-        find.byKey(const Key('geometry_canvas')),
-      );
-      final painter = customPaint.painter as GeometryPainter;
+      // Get the state directly
+      final state =
+          tester.element(find.byType(GeometryCanvas)).read<GeometryState>();
 
       // Verify the point was removed
-      expect(painter.objects.isEmpty, true);
+      expect(state.objects.isEmpty, true);
+    });
+
+    testWidgets('should create circle with two taps', (
+      WidgetTester tester,
+    ) async {
+      await tester.pumpWidget(createTestApp());
+
+      // Switch to circle tool
+      final circleToolButton = find.text('Circle (C)');
+      await tester.tap(circleToolButton);
+      await tester.pump();
+
+      // Find the canvas
+      final canvasFinder = find.byKey(const Key('geometry_canvas'));
+
+      // First tap for center point
+      await tester.tap(canvasFinder);
+      await tester.pump();
+
+      // Second tap for radius
+      final canvasCenter = tester.getCenter(canvasFinder);
+      await tester.tapAt(canvasCenter.translate(70, 0)); // 70px to the right
+      await tester.pump();
+
+      // Get the state directly
+      final state =
+          tester.element(find.byType(GeometryCanvas)).read<GeometryState>();
+
+      // Verify objects were created (1 center point + 1 circle = 2 objects)
+      expect(state.objects.length, 2);
+      expect(state.objects.last is Circle, true);
+    });
+
+    testWidgets('should select and handle object selection', (
+      WidgetTester tester,
+    ) async {
+      await tester.pumpWidget(createTestApp());
+
+      // First create a point
+      final canvasFinder = find.byKey(const Key('geometry_canvas'));
+      await tester.tap(canvasFinder);
+      await tester.pump();
+
+      // Switch to selection tool
+      final selectToolButton = find.text('Select & Drag (S)');
+      await tester.tap(selectToolButton);
+      await tester.pump();
+
+      // Select the created point
+      await tester.tap(canvasFinder);
+      await tester.pump();
+
+      // Get the state directly
+      final state =
+          tester.element(find.byType(GeometryCanvas)).read<GeometryState>();
+
+      // Verify an object is selected
+      expect(state.selectedObject, isNotNull);
+      expect(state.selectedObject is Point, true);
+      expect(state.selectedObject!.isSelected, true);
+    });
+
+    testWidgets('should handle redo after undo', (WidgetTester tester) async {
+      await tester.pumpWidget(createTestApp());
+
+      // Create a point
+      final canvasFinder = find.byKey(const Key('geometry_canvas'));
+      await tester.tap(canvasFinder);
+      await tester.pump();
+
+      // Undo the point creation
+      final undoButton = find.byTooltip('Undo (<-)');
+      await tester.tap(undoButton);
+      await tester.pump();
+
+      // Verify the point was removed
+      var state =
+          tester.element(find.byType(GeometryCanvas)).read<GeometryState>();
+      expect(state.objects.isEmpty, true);
+
+      // Redo the point creation
+      final redoButton = find.byTooltip('Redo (->)');
+      await tester.tap(redoButton);
+      await tester.pump();
+
+      // Verify the point was restored
+      state = tester.element(find.byType(GeometryCanvas)).read<GeometryState>();
+      expect(state.objects.length, 1);
+      expect(state.objects.first is Point, true);
+    });
+
+    testWidgets('should handle zoom operations', (WidgetTester tester) async {
+      await tester.pumpWidget(createTestApp());
+
+      // Get initial zoom state
+      var state =
+          tester.element(find.byType(GeometryCanvas)).read<GeometryState>();
+      final initialZoom = state.zoomScale;
+
+      // Zoom in
+      final zoomInButton = find.byTooltip('Zoom in (+)');
+      await tester.tap(zoomInButton);
+      await tester.pump();
+
+      // Verify zoom increased
+      state = tester.element(find.byType(GeometryCanvas)).read<GeometryState>();
+      expect(state.zoomScale, greaterThan(initialZoom));
+
+      // Zoom out
+      final zoomOutButton = find.byTooltip('Zoom out (-)');
+      await tester.tap(zoomOutButton);
+      await tester.pump();
+
+      // Reset zoom and pan
+      final resetButton = find.byTooltip('Reset zoom');
+      await tester.tap(resetButton);
+      await tester.pump();
+
+      // Verify zoom was reset
+      state = tester.element(find.byType(GeometryCanvas)).read<GeometryState>();
+      expect(state.zoomScale, equals(1.0));
+      expect(state.panOffset, equals(Offset.zero));
     });
   });
 
@@ -296,37 +430,18 @@ void main() {
   });
 
   group('GeometryPainter', () {
-    test('shouldRepaint returns true when inputs change', () {
-      final objects1 = [Point(0, 0)];
-      final objects2 = [Point(10, 10)];
-      final offset1 = Offset.zero;
-      final offset2 = const Offset(5, 5);
+    test('shouldRepaint always returns true since it uses Listenable', () {
+      final state1 = GeometryState();
+      final state2 = GeometryState();
 
-      final painter1 = GeometryPainter(objects1, offset1, 1.0);
+      final painter1 = GeometryPainter(state1) as CustomPainter;
+      final painter2 = GeometryPainter(state2) as CustomPainter;
 
-      // Test objects change
-      expect(
-        painter1.shouldRepaint(GeometryPainter(objects2, offset1, 1.0)),
-        true,
-      );
+      // Test with different states
+      expect(painter1.shouldRepaint(painter2), true);
 
-      // Test pan offset change
-      expect(
-        painter1.shouldRepaint(GeometryPainter(objects1, offset2, 1.0)),
-        true,
-      );
-
-      // Test zoom change
-      expect(
-        painter1.shouldRepaint(GeometryPainter(objects1, offset1, 2.0)),
-        true,
-      );
-
-      // Test no change
-      expect(
-        painter1.shouldRepaint(GeometryPainter(objects1, offset1, 1.0)),
-        false,
-      );
+      // Test with same state
+      expect(painter1.shouldRepaint(painter1), true);
     });
   });
 }

@@ -1,28 +1,23 @@
 import 'package:flutter/material.dart';
-import '../models/geometry_object.dart';
+import '../models/geometry_state.dart';
 
 class GeometryPainter extends CustomPainter {
-  final List<GeometryObject> objects;
-  final Offset panOffset;
-  final double zoomScale;
+  final GeometryState state;
 
-  GeometryPainter(this.objects, this.panOffset, this.zoomScale);
+  GeometryPainter(this.state) : super(repaint: state);
 
   @override
   void paint(Canvas canvas, Size size) {
     // Apply transformations
-    canvas.translate(panOffset.dx, panOffset.dy);
-    canvas.scale(zoomScale, zoomScale);
+    canvas.translate(state.panOffset.dx, state.panOffset.dy);
+    canvas.scale(state.zoomScale, state.zoomScale);
 
     // Let each object draw itself
-    for (final object in objects) {
-      object.draw(canvas, size, zoomScale);
+    for (final object in state.objects) {
+      object.draw(canvas, size, state.zoomScale);
     }
   }
 
   @override
-  bool shouldRepaint(GeometryPainter oldDelegate) =>
-      oldDelegate.objects != objects ||
-      oldDelegate.panOffset != panOffset ||
-      oldDelegate.zoomScale != zoomScale;
+  bool shouldRepaint(GeometryPainter oldDelegate) => true; // State is a Listenable
 }

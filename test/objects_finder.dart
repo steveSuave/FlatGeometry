@@ -16,7 +16,7 @@ class GeometryObjectsFinder extends MatchFinder {
       final customPaint = candidate.widget as CustomPaint;
       if (customPaint.painter is GeometryPainter) {
         final painter = customPaint.painter as GeometryPainter;
-        return painter.objects.length == expectedCount;
+        return painter.state.objects.length == expectedCount;
       }
     }
     return false;
@@ -30,8 +30,8 @@ Finder findGeometryObjectOfType({required Type type, int atIndex = 0}) {
   return find.byWidgetPredicate((widget) {
     if (widget is CustomPaint && widget.painter is GeometryPainter) {
       final painter = widget.painter as GeometryPainter;
-      return painter.objects.length > atIndex &&
-          painter.objects[atIndex].runtimeType == type;
+      return painter.state.objects.length > atIndex &&
+          painter.state.objects[atIndex].runtimeType == type;
     }
     return false;
   });

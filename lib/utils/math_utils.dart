@@ -11,7 +11,5 @@ double getDistance(Offset position, Point point) {
 
 // Calculate distance between two offsets
 double getOffsetDistance(Offset a, Offset b) {
-  return math.sqrt(
-    math.pow(a.dx - b.dx, 2) + math.pow(a.dy - b.dy, 2),
-  );
+  return math.sqrt(math.pow(a.dx - b.dx, 2) + math.pow(a.dy - b.dy, 2));
 }
