@@ -5,6 +5,7 @@ import 'point.dart';
 import 'line.dart';
 import 'circle.dart';
 import '../tools/geometry_tool.dart';
+import 'command.dart';
 
 class GeometryState extends ChangeNotifier {
   // Tool management
@@ -31,6 +32,9 @@ class GeometryState extends ChangeNotifier {
   DragMode _currentDragMode = DragMode.none;
   DragMode get currentDragMode => _currentDragMode;
 
+  // Command management
+  final CommandManager _commandManager = CommandManager();
+
   // View transformations
   Offset _panOffset = Offset.zero;
   Offset get panOffset => _panOffset;
@@ -45,15 +49,8 @@ class GeometryState extends ChangeNotifier {
   late double _pointSelectionThreshold = 10.0;
   double get pointSelectionThreshold => _pointSelectionThreshold;
 
-  // History management
-  final List<List<GeometryObject>> _history = [];
-  int _currentHistoryIndex = -1;
-
   // Constructor
-  GeometryState() {
-    // Initialize history with empty state
-    _addToHistory([]);
-  }
+  GeometryState();
 
   // Updates the selection threshold based on screen size
   void updateSelectionThreshold(BuildContext context) {
@@ -63,44 +60,48 @@ class GeometryState extends ChangeNotifier {
         minDimension * 0.03; // 3% of screen smallest dimension
   }
 
-  // Add methods for undo/redo
-  void _addToHistory(List<GeometryObject> objects) {
-    // Remove any future history if we're not at the end
-    if (_currentHistoryIndex < _history.length - 1) {
-      _history.removeRange(_currentHistoryIndex + 1, _history.length);
-    }
-
-    // Add current state to history
-    _history.add(List.from(objects));
-    _currentHistoryIndex++;
+  // Command pattern methods
+  void executeCommand(Command command) {
+    _commandManager.execute(command, this);
   }
 
   void undo() {
-    if (_currentHistoryIndex > 0) {
-      _currentHistoryIndex--;
-      _objects.clear();
-      _objects.addAll(List.from(_history[_currentHistoryIndex]));
-      _tempStartPoint = null;
-      notifyListeners();
+    if (_commandManager.canUndo()) {
+      _commandManager.undo(this);
     }
   }
 
   void redo() {
-    if (_currentHistoryIndex < _history.length - 1) {
-      _currentHistoryIndex++;
-      _objects.clear();
-      _objects.addAll(List.from(_history[_currentHistoryIndex]));
-      _tempStartPoint = null;
-      notifyListeners();
+    if (_commandManager.canRedo()) {
+      _commandManager.redo(this);
     }
   }
 
   bool canUndo() {
-    return _currentHistoryIndex > 0;
+    return _commandManager.canUndo();
   }
 
   bool canRedo() {
-    return _currentHistoryIndex < _history.length - 1;
+    return _commandManager.canRedo();
+  }
+
+  // Methods needed by commands for state manipulation without history tracking
+  void addObjectWithoutHistory(GeometryObject object) {
+    _objects.add(object);
+    notifyListeners();
+  }
+
+  void removeObjectWithoutHistory(GeometryObject object) {
+    _objects.remove(object);
+    notifyListeners();
+  }
+
+  void setSelectedObjectWithoutNotifying(GeometryObject? object) {
+    _selectedObject = object;
+  }
+
+  void notifyListenersWithoutHistory() {
+    notifyListeners();
   }
 
   // Add zoom methods
@@ -147,27 +148,25 @@ class GeometryState extends ChangeNotifier {
   // Selection methods
   void clearSelection() {
     if (_selectedObject != null) {
-      _selectedObject!.isSelected = false;
-      _selectedObject = null;
-      notifyListeners();
+      final command = SelectObjectCommand(_selectedObject, null);
+      executeCommand(command);
     }
   }
 
   void selectObject(GeometryObject? object) {
-    clearSelection();
-    if (object != null) {
-      object.isSelected = true;
-      _selectedObject = object;
-      notifyListeners();
+    if (object != _selectedObject) {
+      final command = SelectObjectCommand(_selectedObject, object);
+      executeCommand(command);
     }
   }
 
   // Object creation methods
   void addPoint(Offset position) {
     final canvasPosition = screenToCanvasCoordinates(position);
-    _objects.add(Point(canvasPosition.dx, canvasPosition.dy));
-    _addToHistory(_objects);
-    notifyListeners();
+    final point = Point(canvasPosition.dx, canvasPosition.dy);
+
+    final command = AddPointCommand(point);
+    executeCommand(command);
   }
 
   void startLine(Offset position) {
@@ -178,8 +177,8 @@ class GeometryState extends ChangeNotifier {
       _tempStartPoint = nearbyPoint;
     } else {
       _tempStartPoint = Point(canvasPosition.dx, canvasPosition.dy);
-      _objects.add(_tempStartPoint!);
-      _addToHistory(_objects);
+      final command = AddPointCommand(_tempStartPoint!);
+      executeCommand(command);
     }
     notifyListeners();
   }
@@ -191,17 +190,24 @@ class GeometryState extends ChangeNotifier {
     final nearbyPoint = findNearbyPoint(position);
 
     Point endPoint;
+    bool shouldAddEndPoint = false;
+
     if (nearbyPoint != null) {
       endPoint = nearbyPoint;
     } else {
       endPoint = Point(canvasPosition.dx, canvasPosition.dy);
-      _objects.add(endPoint);
+      shouldAddEndPoint = true;
     }
 
-    _objects.add(Line(_tempStartPoint!, endPoint));
+    final line = Line(_tempStartPoint!, endPoint);
+    final command = AddLineCommand(
+      line,
+      endPoint: shouldAddEndPoint ? endPoint : null,
+      shouldAddEndPoint: shouldAddEndPoint,
+    );
+
+    executeCommand(command);
     _tempStartPoint = null;
-    _addToHistory(_objects);
-    notifyListeners();
   }
 
   void startCircle(Offset position) {
@@ -212,8 +218,8 @@ class GeometryState extends ChangeNotifier {
       _tempStartPoint = nearbyPoint;
     } else {
       _tempStartPoint = Point(canvasPosition.dx, canvasPosition.dy);
-      _objects.add(_tempStartPoint!);
-      _addToHistory(_objects);
+      final command = AddPointCommand(_tempStartPoint!);
+      executeCommand(command);
     }
     notifyListeners();
   }
@@ -230,10 +236,11 @@ class GeometryState extends ChangeNotifier {
             : canvasPosition;
 
     final radius = getDistance(secondPoint, _tempStartPoint!);
-    _objects.add(Circle(_tempStartPoint!, radius));
+    final circle = Circle(_tempStartPoint!, radius);
+
+    final command = AddCircleCommand(circle);
+    executeCommand(command);
     _tempStartPoint = null;
-    _addToHistory(_objects);
-    notifyListeners();
   }
 
   // Helper methods
@@ -277,7 +284,7 @@ class GeometryState extends ChangeNotifier {
     return null;
   }
 
-  // Drag handling methods
+  // Drag handling methods with command pattern
   void startDrag(Offset position) {
     if (_selectedObject == null) return;
 
@@ -294,12 +301,39 @@ class GeometryState extends ChangeNotifier {
     } else {
       _currentDragMode = DragMode.move;
     }
+
+    // Store the initial state for the command
+    _initialState = _captureObjectState(_selectedObject!);
+
     notifyListeners();
   }
 
+  Map<String, dynamic>? _initialState;
+
+  Map<String, dynamic> _captureObjectState(GeometryObject object) {
+    if (object is Point) {
+      return {'x': object.x, 'y': object.y};
+    } else if (object is Line) {
+      return {
+        'startX': object.start.x,
+        'startY': object.start.y,
+        'endX': object.end.x,
+        'endY': object.end.y,
+      };
+    } else if (object is Circle) {
+      return {
+        'centerX': object.center.x,
+        'centerY': object.center.y,
+        'radius': object.radius,
+      };
+    }
+    return {};
+  }
+
   void updateDrag(Offset position) {
-    if (!_isDragging || _selectedObject == null || _lastDragPosition == null)
+    if (!_isDragging || _selectedObject == null || _lastDragPosition == null) {
       return;
+    }
 
     final canvasPosition = screenToCanvasCoordinates(position);
     final delta = Offset(
@@ -307,20 +341,47 @@ class GeometryState extends ChangeNotifier {
       (canvasPosition.dy - _lastDragPosition!.dy),
     );
 
-    // Pass the absolute position as well as delta
+    // Apply the drag without recording a command
     _selectedObject!.applyDrag(delta, _currentDragMode, canvasPosition);
     _lastDragPosition = canvasPosition;
     notifyListeners();
   }
 
   void endDrag() {
-    if (_isDragging) {
+    if (_isDragging && _selectedObject != null && _initialState != null) {
+      final finalState = _captureObjectState(_selectedObject!);
+
+      // Only create a command if the object actually changed
+      if (_didStateChange(_initialState!, finalState)) {
+        final command = TransformObjectCommand(
+          _selectedObject!,
+          _initialState!,
+          finalState,
+          _currentDragMode,
+        );
+
+        // We don't use executeCommand here because the change is already applied
+        // We just want to record it in the command history
+        _commandManager.execute(command, this);
+      }
+
       _isDragging = false;
       _lastDragPosition = null;
       _currentDragMode = DragMode.none;
-      // Add current state to history
-      _addToHistory(_objects);
+      _initialState = null;
       notifyListeners();
     }
+  }
+
+  bool _didStateChange(
+    Map<String, dynamic> oldState,
+    Map<String, dynamic> newState,
+  ) {
+    for (final key in oldState.keys) {
+      if (oldState[key] != newState[key]) {
+        return true;
+      }
+    }
+    return false;
   }
 }
