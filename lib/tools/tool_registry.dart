@@ -33,6 +33,13 @@ class ToolRegistry {
       tooltip: 'Circle (C)',
     ),
     const ToolDefinition(
+      type: GeometryTool.select,
+      label: 'Select',
+      icon: Icons.touch_app,
+      shortcutKey: 's',
+      tooltip: 'Select & Drag (S)',
+    ),
+    const ToolDefinition(
       type: GeometryTool.pan,
       label: 'Translate',
       icon: Icons.pan_tool,

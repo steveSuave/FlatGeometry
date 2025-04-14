@@ -1,1 +1,1 @@
-enum GeometryTool { point, line, circle, pan }
+enum GeometryTool { point, line, circle, pan, select }

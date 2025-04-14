@@ -28,15 +28,20 @@ class _GeometryCanvasState extends State<GeometryCanvas> {
   Point? _tempStartPoint;
   late double _pointSelectionThreshold;
 
-  // Add variables for panning
+  // Variable for panning
   Offset _panOffset = Offset.zero;
-  bool _isPanning = false;
 
   // Add variables for zooming
   double _zoomScale = 1.0;
   final double _minZoom = 0.1;
   final double _maxZoom = 5.0;
   double _baseScaleFactor = 1.0;
+
+  // Add variables for selection and dragging
+  GeometryObject? _selectedObject;
+  bool _isDragging = false;
+  Offset? _lastDragPosition;
+  DragMode _currentDragMode = DragMode.none;
 
   // Add variables for undo/redo
   final List<List<GeometryObject>> _history = [];
@@ -206,14 +211,14 @@ class _GeometryCanvasState extends State<GeometryCanvas> {
         },
         child: GestureDetector(
           onTapDown: (details) => _handleTap(details, context),
-          // Add scale gesture handlers
+          // Use scale gesture handlers for both scaling and panning
           onScaleStart: _handleScaleStart,
           onScaleUpdate: _handleScaleUpdate,
           onScaleEnd: _handleScaleEnd,
           child: Container(
             color: Theme.of(context).colorScheme.surface,
             child: CustomPaint(
-              key: const Key('geometry_canvas'), // Add this key
+              key: const Key('geometry_canvas'),
               painter: GeometryPainter(_objects, _panOffset, _zoomScale),
               size: Size.infinite,
             ),
@@ -279,6 +284,9 @@ class _GeometryCanvasState extends State<GeometryCanvas> {
     switch (_currentTool) {
       case GeometryTool.point:
         setState(() {
+          // Clear any previous selection
+          _clearSelection();
+          
           // Use canvas coordinates for creating new points
           _objects.add(Point(canvasPosition.dx, canvasPosition.dy));
           _tempStartPoint = null;
@@ -286,8 +294,11 @@ class _GeometryCanvasState extends State<GeometryCanvas> {
         });
         break;
       case GeometryTool.line:
-        if (_tempStartPoint == null) {
-          setState(() {
+        setState(() {
+          // Clear any previous selection
+          _clearSelection();
+          
+          if (_tempStartPoint == null) {
             // Use nearby point or create a new one with canvas coordinates
             if (nearbyPoint != null) {
               _tempStartPoint = nearbyPoint;
@@ -296,9 +307,7 @@ class _GeometryCanvasState extends State<GeometryCanvas> {
               _objects.add(_tempStartPoint!);
               _addToHistory(_objects);
             }
-          });
-        } else {
-          setState(() {
+          } else {
             // Use nearby point or create a new one for end point
             Point endPoint;
             if (nearbyPoint != null) {
@@ -310,12 +319,15 @@ class _GeometryCanvasState extends State<GeometryCanvas> {
             _objects.add(Line(_tempStartPoint!, endPoint));
             _tempStartPoint = null;
             _addToHistory(_objects);
-          });
-        }
+          }
+        });
         break;
       case GeometryTool.circle:
-        if (_tempStartPoint == null) {
-          setState(() {
+        setState(() {
+          // Clear any previous selection
+          _clearSelection();
+          
+          if (_tempStartPoint == null) {
             // Use nearby point or create a new one with canvas coordinates
             if (nearbyPoint != null) {
               _tempStartPoint = nearbyPoint;
@@ -324,58 +336,91 @@ class _GeometryCanvasState extends State<GeometryCanvas> {
               _objects.add(_tempStartPoint!);
               _addToHistory(_objects);
             }
-          });
-        } else {
-          Offset secondPoint =
-              nearbyPoint != null
-                  ? Offset(nearbyPoint.x, nearbyPoint.y)
-                  : canvasPosition;
-          final radius = getDistance(secondPoint, _tempStartPoint!);
-          setState(() {
+          } else {
+            Offset secondPoint =
+                nearbyPoint != null
+                    ? Offset(nearbyPoint.x, nearbyPoint.y)
+                    : canvasPosition;
+            final radius = getDistance(secondPoint, _tempStartPoint!);
             _objects.add(Circle(_tempStartPoint!, radius));
             _tempStartPoint = null;
             _addToHistory(_objects);
-          });
-        }
+          }
+        });
+        break;
+      case GeometryTool.select:
+        setState(() {
+          // Select object under the cursor
+          _clearSelection();
+          final selectedObject = _findObjectAtPosition(canvasPosition);
+          if (selectedObject != null) {
+            selectedObject.isSelected = true;
+            _selectedObject = selectedObject;
+          }
+        });
         break;
       case GeometryTool.pan:
-        // Do nothing for pan tool on tap
+        // Clear any selection when switching to pan tool
+        _clearSelection();
         break;
     }
   }
-
-  // Add methods for pan handling
-  void _handlePanStart(DragStartDetails details) {
-    if (_currentTool == GeometryTool.pan) {
-      setState(() {
-        _isPanning = true;
-      });
+  
+  // Helper method to clear selection
+  void _clearSelection() {
+    if (_selectedObject != null) {
+      _selectedObject!.isSelected = false;
+      _selectedObject = null;
     }
   }
 
-  void _handlePanUpdate(DragUpdateDetails details) {
-    if (_currentTool == GeometryTool.pan && _isPanning) {
-      setState(() {
-        _panOffset += details.delta;
-      });
+  // Find an object at the given position
+  GeometryObject? _findObjectAtPosition(Offset position) {
+    // Reverse the list to check from top to bottom (last drawn to first drawn)
+    for (int i = _objects.length - 1; i >= 0; i--) {
+      final object = _objects[i];
+      if (object.containsPoint(position, _pointSelectionThreshold / _zoomScale)) {
+        return object;
+      }
     }
+    return null;
   }
 
-  void _handlePanEnd(DragEndDetails details) {
-    setState(() {
-      _isPanning = false;
-    });
-  }
-
-  // Add methods for scale handling
+  // Combined methods for scale and drag handling
   void _handleScaleStart(ScaleStartDetails details) {
     _baseScaleFactor = _zoomScale;
-    _isPanning = false;
+    
+    // Handle selection drag start
+    if (_currentTool == GeometryTool.select && _selectedObject != null) {
+      final position = _screenToCanvasCoordinates(details.localFocalPoint);
+      _lastDragPosition = position;
+      _isDragging = true;
+      
+      // Determine the drag mode
+      if (_selectedObject!.isNearControlPoint(position, _pointSelectionThreshold / _zoomScale)) {
+        _currentDragMode = DragMode.transform;
+      } else {
+        _currentDragMode = DragMode.move;
+      }
+    }
   }
 
   void _handleScaleUpdate(ScaleUpdateDetails details) {
     setState(() {
-      if (details.scale != 1.0) {
+      if (_currentTool == GeometryTool.select && _isDragging && _selectedObject != null && _lastDragPosition != null) {
+        // Handle object dragging
+        if (details.scale == 1.0) { // Only handle drag when not actively scaling
+          final position = _screenToCanvasCoordinates(details.localFocalPoint);
+          final delta = Offset(
+            (position.dx - _lastDragPosition!.dx),
+            (position.dy - _lastDragPosition!.dy),
+          );
+          
+          // Pass the absolute position as well as delta
+          _selectedObject!.applyDrag(delta, _currentDragMode, position);
+          _lastDragPosition = position;
+        }
+      } else if (details.scale != 1.0) {
         // Handle zooming
         _zoomScale = (_baseScaleFactor * details.scale).clamp(
           _minZoom,
@@ -383,13 +428,21 @@ class _GeometryCanvasState extends State<GeometryCanvas> {
         );
       } else if (_currentTool == GeometryTool.pan) {
         // Handle panning
-        _isPanning = true;
         _panOffset += details.focalPointDelta;
       }
     });
   }
 
   void _handleScaleEnd(ScaleEndDetails details) {
-    _isPanning = false;
+    // Handle selection drag end
+    if (_currentTool == GeometryTool.select && _isDragging) {
+      setState(() {
+        _isDragging = false;
+        _lastDragPosition = null;
+        _currentDragMode = DragMode.none;
+        // Add current state to history
+        _addToHistory(_objects);
+      });
+    }
   }
 }
