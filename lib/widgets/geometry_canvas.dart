@@ -3,7 +3,6 @@ import 'package:flutter/services.dart';
 import 'package:provider/provider.dart';
 import '../models/geometry_state.dart';
 import '../models/theme_state.dart';
-import '../tools/geometry_tool.dart';
 import '../tools/tool_registry.dart';
 import '../painters/geometry_painter.dart';
 import 'tool_button.dart';
@@ -113,7 +112,7 @@ class _GeometryCanvasState extends State<GeometryCanvas> {
           return KeyEventResult.ignored;
         },
         child: GestureDetector(
-          onTapDown: (details) => _handleTap(details, context, geometryState),
+          onTapDown: (details) => _handleTapDown(details, geometryState),
           // Use scale gesture handlers for both scaling and panning
           onScaleStart: (details) => _handleScaleStart(details, geometryState),
           onScaleUpdate:
@@ -146,7 +145,7 @@ class _GeometryCanvasState extends State<GeometryCanvas> {
                       ),
                       icon: tool.icon,
                       label: tool.tooltip,
-                      isSelected: geometryState.currentTool == tool.type,
+                      isSelected: geometryState.currentToolType == tool.type,
                       onPressed: () => geometryState.setTool(tool.type),
                     );
                   }).toList(),
@@ -157,75 +156,20 @@ class _GeometryCanvasState extends State<GeometryCanvas> {
     );
   }
 
-  void _handleTap(
-    TapDownDetails details,
-    BuildContext context,
-    GeometryState state,
-  ) {
-    final position = details.localPosition;
-
-    switch (state.currentTool) {
-      case GeometryTool.point:
-        state.clearSelection();
-        state.addPoint(position);
-        break;
-      case GeometryTool.line:
-        state.clearSelection();
-        if (state.tempStartPoint == null) {
-          state.startLine(position);
-        } else {
-          state.completeLine(position);
-        }
-        break;
-      case GeometryTool.circle:
-        state.clearSelection();
-        if (state.tempStartPoint == null) {
-          state.startCircle(position);
-        } else {
-          state.completeCircle(position);
-        }
-        break;
-      case GeometryTool.select:
-        final selectedObject = state.findObjectAtPosition(position);
-        state.selectObject(selectedObject);
-        break;
-      case GeometryTool.pan:
-        state.clearSelection();
-        break;
-    }
+  // Delegate gesture handlers to the current tool
+  void _handleTapDown(TapDownDetails details, GeometryState state) {
+    state.currentTool.onTapDown(details, state);
   }
 
-  // Combined methods for scale and drag handling
   void _handleScaleStart(ScaleStartDetails details, GeometryState state) {
-    state.setBaseScaleFactor(state.zoomScale);
-
-    // Handle selection drag start
-    if (state.currentTool == GeometryTool.select &&
-        state.selectedObject != null) {
-      state.startDrag(details.localFocalPoint);
-    }
+    state.currentTool.onScaleStart(details, state);
   }
 
   void _handleScaleUpdate(ScaleUpdateDetails details, GeometryState state) {
-    if (state.currentTool == GeometryTool.select &&
-        state.isDragging &&
-        state.selectedObject != null &&
-        details.scale == 1.0) {
-      // Handle object dragging - only when not actively scaling
-      state.updateDrag(details.localFocalPoint);
-    } else if (details.scale != 1.0) {
-      // Handle zooming
-      state.updateZoom(details.scale);
-    } else if (state.currentTool == GeometryTool.pan) {
-      // Handle panning
-      state.updatePan(details.focalPointDelta);
-    }
+    state.currentTool.onScaleUpdate(details, state);
   }
 
   void _handleScaleEnd(ScaleEndDetails details, GeometryState state) {
-    // Handle selection drag end
-    if (state.currentTool == GeometryTool.select && state.isDragging) {
-      state.endDrag();
-    }
+    state.currentTool.onScaleEnd(details, state);
   }
 }

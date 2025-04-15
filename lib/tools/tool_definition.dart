@@ -3,7 +3,7 @@ import 'package:flutter/services.dart';
 import 'geometry_tool.dart';
 
 class ToolDefinition {
-  final GeometryTool type;
+  final ToolType type;
   final String label;
   final IconData icon;
   final String shortcutKey;
@@ -17,7 +17,6 @@ class ToolDefinition {
     required this.tooltip,
   });
 
-  // Check if a KeyEvent matches this tool's shortcut
   bool matchesKeyEvent(KeyEvent event) {
     if (event is KeyDownEvent && event.character != null) {
       return event.character?.toLowerCase() == shortcutKey.toLowerCase();

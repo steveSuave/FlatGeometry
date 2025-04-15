@@ -8,13 +8,25 @@ import '../tools/geometry_tool.dart';
 import 'command.dart';
 import 'coordinate_system.dart';
 import '../services/selection_service.dart';
+import '../tools/tool_registry.dart';
 
 class GeometryState extends ChangeNotifier {
+  // Tool registry
+  final ToolRegistry _toolRegistry;
+
   // Tool management
-  GeometryTool _currentTool = GeometryTool.point;
-  GeometryTool get currentTool => _currentTool;
-  void setTool(GeometryTool tool) {
-    _currentTool = tool;
+  ToolType _currentToolType = ToolType.point;
+  ToolType get currentToolType => _currentToolType;
+
+  Tool? _currentTool;
+  Tool get currentTool {
+    _currentTool ??= _toolRegistry.createTool(_currentToolType);
+    return _currentTool!;
+  }
+
+  void setTool(ToolType type) {
+    _currentToolType = type;
+    _currentTool = _toolRegistry.createTool(type);
     notifyListeners();
   }
 
@@ -35,13 +47,13 @@ class GeometryState extends ChangeNotifier {
   DragMode get currentDragMode => _currentDragMode;
 
   // Selection service
-  final SelectionService _selectionService = SelectionService();
+  final SelectionService _selectionService;
 
   // Command management
-  final CommandManager _commandManager = CommandManager();
+  final CommandManager _commandManager;
 
   // Coordinate system
-  final CoordinateSystem _coordinateSystem = CoordinateSystem();
+  final CoordinateSystem _coordinateSystem;
   CoordinateSystem get coordinateSystem => _coordinateSystem;
 
   // Viewport transformations - delegates to coordinate system
@@ -53,12 +65,23 @@ class GeometryState extends ChangeNotifier {
   late double _pointSelectionThreshold = 10.0;
   double get pointSelectionThreshold => _pointSelectionThreshold;
 
-  // Constructor
-  GeometryState() {
+  // Constructor with dependency injection
+  GeometryState({
+    ToolRegistry? toolRegistry,
+    SelectionService? selectionService,
+    CommandManager? commandManager,
+    CoordinateSystem? coordinateSystem,
+  }) : _toolRegistry = toolRegistry ?? ToolRegistry.instance,
+       _selectionService = selectionService ?? SelectionService(),
+       _commandManager = commandManager ?? CommandManager(),
+       _coordinateSystem = coordinateSystem ?? CoordinateSystem() {
     // Listen to coordinate system changes to notify state listeners
     _coordinateSystem.addListener(() {
       notifyListeners();
     });
+
+    // Initialize current tool
+    _currentTool = _toolRegistry.createTool(_currentToolType);
   }
 
   // Updates the selection threshold based on screen size
