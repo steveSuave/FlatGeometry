@@ -32,7 +32,7 @@ abstract class GeometryObject {
   Paint createStrokePaint(Size size) {
     final minDimension = math.min(size.width, size.height);
     return Paint()
-      ..color = isSelected ? Colors.red : color
+      ..color = isSelected ? Colors.yellow : color
       ..strokeWidth = minDimension * 0.003
       ..style = PaintingStyle.stroke;
   }
@@ -41,7 +41,7 @@ abstract class GeometryObject {
   Paint createFillPaint(Size size) {
     final minDimension = math.min(size.width, size.height);
     return Paint()
-      ..color = isSelected ? Colors.red : color
+      ..color = isSelected ? Colors.yellow : color
       ..strokeWidth = minDimension * 0.003
       ..style = PaintingStyle.fill;
   }
