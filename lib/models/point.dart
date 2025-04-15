@@ -41,4 +41,9 @@ class Point extends GeometryObject {
       y += delta.dy;
     }
   }
+
+  @override
+  Map<String, dynamic> captureState() {
+    return {'x': x, 'y': y};
+  }
 }

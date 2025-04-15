@@ -25,6 +25,9 @@ abstract class GeometryObject {
     return false;
   }
 
+  // Method to capture the object's state for undo/redo functionality
+  Map<String, dynamic> captureState();
+
   // Common method to create stroke paint
   Paint createStrokePaint(Size size) {
     final minDimension = math.min(size.width, size.height);

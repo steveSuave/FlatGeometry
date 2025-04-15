@@ -7,6 +7,7 @@ import 'circle.dart';
 import '../tools/geometry_tool.dart';
 import 'command.dart';
 import 'coordinate_system.dart';
+import '../services/selection_service.dart';
 
 class GeometryState extends ChangeNotifier {
   // Tool management
@@ -32,6 +33,9 @@ class GeometryState extends ChangeNotifier {
   Offset? get lastDragPosition => _lastDragPosition;
   DragMode _currentDragMode = DragMode.none;
   DragMode get currentDragMode => _currentDragMode;
+
+  // Selection service
+  final SelectionService _selectionService = SelectionService();
 
   // Command management
   final CommandManager _commandManager = CommandManager();
@@ -142,14 +146,20 @@ class GeometryState extends ChangeNotifier {
   // Selection methods
   void clearSelection() {
     if (_selectedObject != null) {
-      final command = SelectObjectCommand(_selectedObject, null);
+      final command = _selectionService.createSelectionCommand(
+        _selectedObject,
+        null,
+      );
       executeCommand(command);
     }
   }
 
   void selectObject(GeometryObject? object) {
     if (object != _selectedObject) {
-      final command = SelectObjectCommand(_selectedObject, object);
+      final command = _selectionService.createSelectionCommand(
+        _selectedObject,
+        object,
+      );
       executeCommand(command);
     }
   }
@@ -229,7 +239,7 @@ class GeometryState extends ChangeNotifier {
             ? Offset(nearbyPoint.x, nearbyPoint.y)
             : canvasPosition;
 
-    final radius = getDistance(secondPoint, _tempStartPoint!);
+    final radius = _selectionService.getDistance(secondPoint, _tempStartPoint!);
     final circle = Circle(_tempStartPoint!, radius);
 
     final command = AddCircleCommand(circle);
@@ -238,10 +248,6 @@ class GeometryState extends ChangeNotifier {
   }
 
   // Helper methods
-  double getDistance(Offset p1, Point p2) {
-    return math.sqrt(math.pow(p1.dx - p2.x, 2) + math.pow(p1.dy - p2.y, 2));
-  }
-
   Point? findNearbyPoint(Offset position) {
     // Convert screen position to canvas coordinates
     final canvasPosition = screenToCanvasCoordinates(position);
@@ -249,33 +255,24 @@ class GeometryState extends ChangeNotifier {
     // Adjust the threshold for zoom level
     final adjustedThreshold = _pointSelectionThreshold / zoomScale;
 
-    for (var object in _objects) {
-      if (object is Point) {
-        // Calculate distance using canvas coordinates
-        double distance = getDistance(canvasPosition, object);
-
-        if (distance <= adjustedThreshold) {
-          return object;
-        }
-      }
-    }
-    return null;
+    return _selectionService.findNearbyPoint(
+      _objects,
+      canvasPosition,
+      adjustedThreshold,
+    );
   }
 
   GeometryObject? findObjectAtPosition(Offset position) {
     final canvasPosition = screenToCanvasCoordinates(position);
 
-    // Reverse the list to check from top to bottom (last drawn to first drawn)
-    for (int i = _objects.length - 1; i >= 0; i--) {
-      final object = _objects[i];
-      if (object.containsPoint(
-        canvasPosition,
-        _pointSelectionThreshold / zoomScale,
-      )) {
-        return object;
-      }
-    }
-    return null;
+    // Adjust the threshold for zoom level
+    final adjustedThreshold = _pointSelectionThreshold / zoomScale;
+
+    return _selectionService.findObjectAtPosition(
+      _objects,
+      canvasPosition,
+      adjustedThreshold,
+    );
   }
 
   // Drag handling methods with command pattern
@@ -286,10 +283,14 @@ class GeometryState extends ChangeNotifier {
     _lastDragPosition = canvasPosition;
     _isDragging = true;
 
+    // Adjust the threshold for zoom level
+    final adjustedThreshold = _pointSelectionThreshold / zoomScale;
+
     // Determine the drag mode
-    if (_selectedObject!.isNearControlPoint(
+    if (_selectionService.isNearControlPoint(
+      _selectedObject,
       canvasPosition,
-      _pointSelectionThreshold / zoomScale,
+      adjustedThreshold,
     )) {
       _currentDragMode = DragMode.transform;
     } else {
@@ -297,32 +298,12 @@ class GeometryState extends ChangeNotifier {
     }
 
     // Store the initial state for the command
-    _initialState = _captureObjectState(_selectedObject!);
+    _initialState = _selectedObject!.captureState();
 
     notifyListeners();
   }
 
   Map<String, dynamic>? _initialState;
-
-  Map<String, dynamic> _captureObjectState(GeometryObject object) {
-    if (object is Point) {
-      return {'x': object.x, 'y': object.y};
-    } else if (object is Line) {
-      return {
-        'startX': object.start.x,
-        'startY': object.start.y,
-        'endX': object.end.x,
-        'endY': object.end.y,
-      };
-    } else if (object is Circle) {
-      return {
-        'centerX': object.center.x,
-        'centerY': object.center.y,
-        'radius': object.radius,
-      };
-    }
-    return {};
-  }
 
   void updateDrag(Offset position) {
     if (!_isDragging || _selectedObject == null || _lastDragPosition == null) {
@@ -343,10 +324,10 @@ class GeometryState extends ChangeNotifier {
 
   void endDrag() {
     if (_isDragging && _selectedObject != null && _initialState != null) {
-      final finalState = _captureObjectState(_selectedObject!);
+      final finalState = _selectedObject!.captureState();
 
       // Only create a command if the object actually changed
-      if (_didStateChange(_initialState!, finalState)) {
+      if (_selectionService.didStateChange(_initialState!, finalState)) {
         final command = TransformObjectCommand(
           _selectedObject!,
           _initialState!,
@@ -365,18 +346,6 @@ class GeometryState extends ChangeNotifier {
       _initialState = null;
       notifyListeners();
     }
-  }
-
-  bool _didStateChange(
-    Map<String, dynamic> oldState,
-    Map<String, dynamic> newState,
-  ) {
-    for (final key in oldState.keys) {
-      if (oldState[key] != newState[key]) {
-        return true;
-      }
-    }
-    return false;
   }
 
   // Cleanup method

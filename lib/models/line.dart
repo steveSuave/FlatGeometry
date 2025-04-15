@@ -117,6 +117,11 @@ class Line extends GeometryObject {
     }
   }
 
+  @override
+  Map<String, dynamic> captureState() {
+    return {'startX': start.x, 'startY': start.y, 'endX': end.x, 'endY': end.y};
+  }
+
   // Helper method to check if a point is near the line segment
   bool _isPointNearLine(Offset point, double threshold) {
     // Vector from line start to end

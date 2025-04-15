@@ -118,6 +118,11 @@ class Circle extends GeometryObject {
     }
   }
 
+  @override
+  Map<String, dynamic> captureState() {
+    return {'centerX': center.x, 'centerY': center.y, 'radius': radius};
+  }
+
   // Helper method to check if a point is near the perimeter
   bool _isPointNearPerimeter(Offset point, double threshold) {
     // Calculate distance from point to center
