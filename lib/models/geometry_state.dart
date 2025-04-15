@@ -6,6 +6,7 @@ import 'line.dart';
 import 'circle.dart';
 import '../tools/geometry_tool.dart';
 import 'command.dart';
+import 'coordinate_system.dart';
 
 class GeometryState extends ChangeNotifier {
   // Tool management
@@ -35,22 +36,26 @@ class GeometryState extends ChangeNotifier {
   // Command management
   final CommandManager _commandManager = CommandManager();
 
-  // View transformations
-  Offset _panOffset = Offset.zero;
-  Offset get panOffset => _panOffset;
-  double _zoomScale = 1.0;
-  double get zoomScale => _zoomScale;
-  final double _minZoom = 0.1;
-  final double _maxZoom = 5.0;
-  double _baseScaleFactor = 1.0;
-  double get baseScaleFactor => _baseScaleFactor;
+  // Coordinate system
+  final CoordinateSystem _coordinateSystem = CoordinateSystem();
+  CoordinateSystem get coordinateSystem => _coordinateSystem;
+
+  // Viewport transformations - delegates to coordinate system
+  Offset get panOffset => _coordinateSystem.panOffset;
+  double get zoomScale => _coordinateSystem.zoomScale;
+  double get baseScaleFactor => _coordinateSystem.baseScaleFactor;
 
   // Selection threshold
   late double _pointSelectionThreshold = 10.0;
   double get pointSelectionThreshold => _pointSelectionThreshold;
 
   // Constructor
-  GeometryState();
+  GeometryState() {
+    // Listen to coordinate system changes to notify state listeners
+    _coordinateSystem.addListener(() {
+      notifyListeners();
+    });
+  }
 
   // Updates the selection threshold based on screen size
   void updateSelectionThreshold(BuildContext context) {
@@ -104,45 +109,34 @@ class GeometryState extends ChangeNotifier {
     notifyListeners();
   }
 
-  // Add zoom methods
+  // View transformation methods - delegate to coordinate system
   void zoomIn() {
-    _zoomScale = (_zoomScale * 1.05).clamp(_minZoom, _maxZoom);
-    notifyListeners();
+    _coordinateSystem.zoomIn();
   }
 
   void zoomOut() {
-    _zoomScale = (_zoomScale / 1.05).clamp(_minZoom, _maxZoom);
-    notifyListeners();
+    _coordinateSystem.zoomOut();
   }
 
   void resetView() {
-    _zoomScale = 1.0;
-    _panOffset = Offset.zero;
-    notifyListeners();
+    _coordinateSystem.resetView();
   }
 
   void updateZoom(double scale) {
-    _zoomScale = (_baseScaleFactor * scale).clamp(_minZoom, _maxZoom);
-    notifyListeners();
+    _coordinateSystem.updateZoom(scale);
   }
 
   void updatePan(Offset delta) {
-    _panOffset += delta;
-    notifyListeners();
+    _coordinateSystem.updatePan(delta);
   }
 
   void setBaseScaleFactor(double factor) {
-    _baseScaleFactor = factor;
+    _coordinateSystem.setBaseScaleFactor(factor);
   }
 
   // Helper method to convert screen to canvas coordinates
   Offset screenToCanvasCoordinates(Offset screenPosition) {
-    final panAdjusted = Offset(
-      screenPosition.dx - _panOffset.dx,
-      screenPosition.dy - _panOffset.dy,
-    );
-
-    return Offset(panAdjusted.dx / _zoomScale, panAdjusted.dy / _zoomScale);
+    return _coordinateSystem.screenToCanvasCoordinates(screenPosition);
   }
 
   // Selection methods
@@ -253,7 +247,7 @@ class GeometryState extends ChangeNotifier {
     final canvasPosition = screenToCanvasCoordinates(position);
 
     // Adjust the threshold for zoom level
-    final adjustedThreshold = _pointSelectionThreshold / _zoomScale;
+    final adjustedThreshold = _pointSelectionThreshold / zoomScale;
 
     for (var object in _objects) {
       if (object is Point) {
@@ -276,7 +270,7 @@ class GeometryState extends ChangeNotifier {
       final object = _objects[i];
       if (object.containsPoint(
         canvasPosition,
-        _pointSelectionThreshold / _zoomScale,
+        _pointSelectionThreshold / zoomScale,
       )) {
         return object;
       }
@@ -295,7 +289,7 @@ class GeometryState extends ChangeNotifier {
     // Determine the drag mode
     if (_selectedObject!.isNearControlPoint(
       canvasPosition,
-      _pointSelectionThreshold / _zoomScale,
+      _pointSelectionThreshold / zoomScale,
     )) {
       _currentDragMode = DragMode.transform;
     } else {
@@ -383,5 +377,12 @@ class GeometryState extends ChangeNotifier {
       }
     }
     return false;
+  }
+
+  // Cleanup method
+  @override
+  void dispose() {
+    _coordinateSystem.dispose();
+    super.dispose();
   }
 }

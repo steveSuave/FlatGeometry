@@ -8,9 +8,8 @@ class GeometryPainter extends CustomPainter {
 
   @override
   void paint(Canvas canvas, Size size) {
-    // Apply transformations
-    canvas.translate(state.panOffset.dx, state.panOffset.dy);
-    canvas.scale(state.zoomScale, state.zoomScale);
+    // Apply transformations through the coordinate system
+    state.coordinateSystem.applyTransform(canvas);
 
     // Let each object draw itself
     for (final object in state.objects) {

@@ -15,6 +15,7 @@ class GeometryApp extends StatelessWidget {
       themeMode: themeState.themeMode,
       theme: themeState.buildLightTheme(),
       darkTheme: themeState.buildDarkTheme(),
+      debugShowCheckedModeBanner: false,
       home: const GeometryCanvas(),
     );
   }
