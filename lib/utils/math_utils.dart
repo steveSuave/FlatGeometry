@@ -2,6 +2,11 @@ import 'package:flutter/material.dart';
 import 'dart:math' as math;
 import '../models/point.dart';
 
+// Calculate distance between two points
+double getPointDistance(Point a, Point b) {
+  return math.sqrt(math.pow(a.x - b.x, 2) + math.pow(a.y - b.y, 2));
+}
+
 // Calculate distance between an offset and a point
 double getDistance(Offset position, Point point) {
   return math.sqrt(

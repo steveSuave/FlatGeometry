@@ -1,3 +1,5 @@
+import 'package:geometry_app/utils/math_utils.dart';
+
 import 'geometry_object.dart';
 import 'point.dart';
 import 'package:flutter/material.dart';
@@ -72,16 +74,11 @@ class Circle extends GeometryObject {
   @override
   bool isNearControlPoint(Offset point, double threshold) {
     // Check if we're near the center
-    final distanceToCenter = math.sqrt(
-      math.pow(point.dx - center.x, 2) + math.pow(point.dy - center.y, 2),
-    );
+    final distanceToCenter = getDistance(point, center);
 
     // Check if we're near the perimeter handle (at 45 degrees)
     final handlePoint = getPointOnPerimeter(math.pi / 4);
-    final distanceToHandle = math.sqrt(
-      math.pow(point.dx - handlePoint.dx, 2) +
-          math.pow(point.dy - handlePoint.dy, 2),
-    );
+    final distanceToHandle = getOffsetDistance(point, handlePoint);
 
     // Set flags for which part is being dragged
     _isResizingRadius = distanceToHandle <= threshold;
@@ -126,9 +123,7 @@ class Circle extends GeometryObject {
   // Helper method to check if a point is near the perimeter
   bool _isPointNearPerimeter(Offset point, double threshold) {
     // Calculate distance from point to center
-    final distanceToCenter = math.sqrt(
-      math.pow(point.dx - center.x, 2) + math.pow(point.dy - center.y, 2),
-    );
+    final distanceToCenter = getDistance(point, center);
 
     // Calculate distance from point to perimeter
     final distanceToPerimeter = (distanceToCenter - radius).abs();

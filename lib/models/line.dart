@@ -1,3 +1,5 @@
+import 'package:geometry_app/utils/math_utils.dart';
+
 import 'geometry_object.dart';
 import 'point.dart';
 import 'package:flutter/material.dart';
@@ -15,9 +17,7 @@ class Line extends GeometryObject {
 
   // Get length of the line
   double get length {
-    return math.sqrt(
-      math.pow(end.x - start.x, 2) + math.pow(end.y - start.y, 2),
-    );
+    return getPointDistance(start, end);
   }
 
   // Get midpoint of the line
@@ -82,13 +82,9 @@ class Line extends GeometryObject {
   @override
   bool isNearControlPoint(Offset point, double threshold) {
     // Check if we're near the start or end point
-    final distanceToStart = math.sqrt(
-      math.pow(point.dx - start.x, 2) + math.pow(point.dy - start.y, 2),
-    );
+    final distanceToStart = getDistance(point, start);
 
-    final distanceToEnd = math.sqrt(
-      math.pow(point.dx - end.x, 2) + math.pow(point.dy - end.y, 2),
-    );
+    final distanceToEnd = getDistance(point, end);
 
     _isDraggingStart = distanceToStart <= threshold;
     _isDraggingEnd = distanceToEnd <= threshold;
@@ -133,10 +129,7 @@ class Line extends GeometryObject {
 
     // If the line is too short, treat it as a point
     if (lineLength < 0.0001) {
-      return math.sqrt(
-            math.pow(point.dx - start.x, 2) + math.pow(point.dy - start.y, 2),
-          ) <=
-          threshold;
+      return getDistance(point, start) <= threshold;
     }
 
     // Calculate the projection of the point onto the line
@@ -146,15 +139,9 @@ class Line extends GeometryObject {
 
     // If t is outside [0,1], the projection falls outside the line segment
     if (t < 0) {
-      return math.sqrt(
-            math.pow(point.dx - start.x, 2) + math.pow(point.dy - start.y, 2),
-          ) <=
-          threshold;
+      return getDistance(point, start) <= threshold;
     } else if (t > 1) {
-      return math.sqrt(
-            math.pow(point.dx - end.x, 2) + math.pow(point.dy - end.y, 2),
-          ) <=
-          threshold;
+      return getDistance(point, end) <= threshold;
     }
 
     // Calculate the projection point
