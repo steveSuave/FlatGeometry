@@ -41,6 +41,12 @@ class Point extends GeometryObject {
       y += delta.dy;
     }
   }
+  
+  // Allow other objects to observe when this point moves
+  void registerObserver(Function(Point) observer) {
+    // In a more complex implementation, we'd maintain a list of observers
+    // For now we don't need this as we directly access the point references
+  }
 
   @override
   Map<String, dynamic> captureState() {

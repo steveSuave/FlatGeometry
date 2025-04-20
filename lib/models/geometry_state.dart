@@ -257,15 +257,27 @@ class GeometryState extends ChangeNotifier {
     final canvasPosition = screenToCanvasCoordinates(position);
     final nearbyPoint = findNearbyPoint(position);
 
-    Offset secondPoint =
-        nearbyPoint != null
-            ? Offset(nearbyPoint.x, nearbyPoint.y)
-            : canvasPosition;
+    Point? radiusPoint;
+    Offset secondPoint;
+    
+    if (nearbyPoint != null) {
+      radiusPoint = nearbyPoint;
+      secondPoint = Offset(nearbyPoint.x, nearbyPoint.y);
+    } else {
+      // Create a new point at the radius position
+      secondPoint = canvasPosition;
+      radiusPoint = Point(canvasPosition.dx, canvasPosition.dy);
+    }
 
     final radius = _selectionService.getDistance(secondPoint, _tempStartPoint!);
-    final circle = Circle(_tempStartPoint!, radius);
+    final circle = Circle(_tempStartPoint!, radius, radiusPoint: radiusPoint);
 
-    final command = AddCircleCommand(circle);
+    final command = AddCircleCommand(
+      circle,
+      radiusPoint: nearbyPoint == null ? radiusPoint : null,
+      shouldAddRadiusPoint: nearbyPoint == null,
+    );
+    
     executeCommand(command);
     _tempStartPoint = null;
   }

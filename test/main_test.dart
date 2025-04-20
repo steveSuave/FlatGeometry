@@ -242,9 +242,16 @@ void main() {
       final state =
           tester.element(find.byType(GeometryCanvas)).read<GeometryState>();
 
-      // Verify objects were created (1 center point + 1 circle = 2 objects)
-      expect(state.objects.length, 2);
-      expect(state.objects.last is Circle, true);
+      // Verify objects were created (1 center point, 1 radius point, 1 circle = 3 objects)
+      expect(state.objects.length, 3);
+      expect(state.objects.where((obj) => obj is Point).length, 2);
+      expect(state.objects.where((obj) => obj is Circle).length, 1);
+      
+      // Get the circle
+      final circle = state.objects.firstWhere((obj) => obj is Circle) as Circle;
+      
+      // Verify circle has a radius point
+      expect(circle.radiusPoint, isNotNull);
     });
 
     testWidgets('should select and handle object selection', (
@@ -499,8 +506,9 @@ void main() {
       var state =
           tester.element(find.byType(GeometryCanvas)).read<GeometryState>();
 
-      // Verify we have 5 objects total (3 points, 1 line, 1 circle)
-      expect(state.objects.length, 5);
+      // Verify we have 6 objects total (4 points, 1 line, 1 circle)
+      // There's an extra point now for the circle's radius point
+      expect(state.objects.length, 6);
 
       // Undo circle creation
       final undoButton = find.byTooltip('Undo (<-)');
@@ -511,13 +519,15 @@ void main() {
       state = tester.element(find.byType(GeometryCanvas)).read<GeometryState>();
       expect(state.objects.length, 4);
 
-      // Undo the circle center point creation
+      // Undo the radius point and circle center point creation (requires 2 undos)
+      await tester.tap(undoButton);
+      await tester.pump();
       await tester.tap(undoButton);
       await tester.pump();
 
-      // Verify the circle center was removed
+      // Verify circle center and radius points were removed
       state = tester.element(find.byType(GeometryCanvas)).read<GeometryState>();
-      expect(state.objects.length, 3);
+      expect(state.objects.length, 1); // Only the first point should remain
 
       // Redo both circle operations
       final redoButton = find.byTooltip('Redo (->)');
@@ -526,12 +536,16 @@ void main() {
       await tester.tap(redoButton);
       await tester.pump();
 
-      // Verify we have all 5 objects again
+      // We need one more redo to get all objects back
+      await tester.tap(redoButton);
+      await tester.pump();
+      
+      // Verify we have all 6 objects again
       state = tester.element(find.byType(GeometryCanvas)).read<GeometryState>();
-      expect(state.objects.length, 5);
+      expect(state.objects.length, 6);
 
       // Undo all the way back to the beginning
-      for (int i = 0; i < 5; i++) {
+      for (int i = 0; i < 4; i++) {
         await tester.tap(undoButton);
         await tester.pump();
       }
@@ -541,14 +555,14 @@ void main() {
       expect(state.objects.length, 0);
 
       // Redo all operations
-      for (int i = 0; i < 5; i++) {
+      for (int i = 0; i < 4; i++) {
         await tester.tap(redoButton);
         await tester.pump();
       }
 
       // Verify all objects are back
       state = tester.element(find.byType(GeometryCanvas)).read<GeometryState>();
-      expect(state.objects.length, 5);
+      expect(state.objects.length, 6);
     });
 
     testWidgets('should handle selection and transformation with undo/redo', (

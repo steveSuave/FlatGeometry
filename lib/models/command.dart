@@ -82,12 +82,16 @@ class AddLineCommand implements Command {
 class AddCircleCommand implements Command {
   final Circle circle;
   final Point? centerPoint;
+  final Point? radiusPoint;
   final bool shouldAddCenterPoint;
+  final bool shouldAddRadiusPoint;
 
   AddCircleCommand(
     this.circle, {
     this.centerPoint,
+    this.radiusPoint,
     this.shouldAddCenterPoint = false,
+    this.shouldAddRadiusPoint = false,
   });
 
   @override
@@ -98,6 +102,10 @@ class AddCircleCommand implements Command {
     if (shouldAddCenterPoint && centerPoint != null) {
       state.addObjectWithoutHistory(centerPoint!);
     }
+    
+    if (shouldAddRadiusPoint && radiusPoint != null) {
+      state.addObjectWithoutHistory(radiusPoint!);
+    }
 
     state.addObjectWithoutHistory(circle);
   }
@@ -105,6 +113,10 @@ class AddCircleCommand implements Command {
   @override
   void undo(GeometryState state) {
     state.removeObjectWithoutHistory(circle);
+    
+    if (shouldAddRadiusPoint && radiusPoint != null) {
+      state.removeObjectWithoutHistory(radiusPoint!);
+    }
 
     if (shouldAddCenterPoint && centerPoint != null) {
       state.removeObjectWithoutHistory(centerPoint!);
@@ -155,6 +167,25 @@ class TransformObjectCommand implements Command {
       object.center.x = state['centerX'];
       object.center.y = state['centerY'];
       object.radius = state['radius'];
+      
+      // Handle radius point
+      if (state.containsKey('hasRadiusPoint')) {
+        if (state['hasRadiusPoint'] > 0.5) { // Use numeric comparison instead of boolean
+          // Restore or create radius point
+          if (object.radiusPoint == null) {
+            object.radiusPoint = Point(
+              state['radiusPointX'], 
+              state['radiusPointY']
+            );
+          } else {
+            object.radiusPoint!.x = state['radiusPointX'];
+            object.radiusPoint!.y = state['radiusPointY'];
+          }
+        } else {
+          // Remove radius point if it shouldn't exist
+          object.radiusPoint = null;
+        }
+      }
     }
   }
 }
