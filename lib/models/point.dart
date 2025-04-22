@@ -19,7 +19,7 @@ class Point extends GeometryObject {
       final highlightRadius = pointRadius * 1.5;
       final highlightPaint =
           Paint()
-            ..color = Colors.red.withAlpha(76) // ~0.3 opacity
+            ..color = Colors.yellow.withAlpha(76) // ~0.3 opacity
             ..style = PaintingStyle.fill;
       canvas.drawCircle(Offset(x, y), highlightRadius, highlightPaint);
     }
@@ -41,7 +41,7 @@ class Point extends GeometryObject {
       y += delta.dy;
     }
   }
-  
+
   // Allow other objects to observe when this point moves
   void registerObserver(Function(Point) observer) {
     // In a more complex implementation, we'd maintain a list of observers

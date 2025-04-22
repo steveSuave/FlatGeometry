@@ -22,7 +22,7 @@ class Circle extends GeometryObject {
       center.y + radius * math.sin(angle),
     );
   }
-  
+
   // Update or create the radius point
   void updateRadiusPoint() {
     if (radiusPoint == null) {
@@ -32,13 +32,16 @@ class Circle extends GeometryObject {
     } else {
       // Check if radius point has been moved
       final distanceFromCenter = math.sqrt(
-        math.pow(radiusPoint!.x - center.x, 2) + 
-        math.pow(radiusPoint!.y - center.y, 2)
+        math.pow(radiusPoint!.x - center.x, 2) +
+            math.pow(radiusPoint!.y - center.y, 2),
       );
-      
+
       if ((distanceFromCenter - radius).abs() > 0.1) {
         // Update radius point to match current radius
-        final angle = math.atan2(radiusPoint!.y - center.y, radiusPoint!.x - center.x);
+        final angle = math.atan2(
+          radiusPoint!.y - center.y,
+          radiusPoint!.x - center.x,
+        );
         final perimeterPoint = getPointOnPerimeter(angle);
         radiusPoint!.x = perimeterPoint.dx;
         radiusPoint!.y = perimeterPoint.dy;
@@ -52,21 +55,22 @@ class Circle extends GeometryObject {
     if (radiusPoint != null) {
       updateRadiusPoint();
     }
-    
+
     // Draw the circle
     canvas.drawCircle(
       Offset(center.x, center.y),
       radius,
       createStrokePaint(size),
     );
-    
+
     // Draw line from center to radius point if it exists
     if (radiusPoint != null) {
-      final radiusLinePaint = Paint()
-        ..color = color.withAlpha(128) // 0.5 opacity
-        ..strokeWidth = createStrokePaint(size).strokeWidth * 0.5
-        ..style = PaintingStyle.stroke;
-        
+      final radiusLinePaint =
+          Paint()
+            ..color = color.withAlpha(128) // 0.5 opacity
+            ..strokeWidth = createStrokePaint(size).strokeWidth * 0.5
+            ..style = PaintingStyle.stroke;
+
       canvas.drawLine(
         Offset(center.x, center.y),
         Offset(radiusPoint!.x, radiusPoint!.y),
@@ -98,9 +102,10 @@ class Circle extends GeometryObject {
       );
 
       // Draw a handle on the perimeter for resizing
-      final handlePoint = radiusPoint != null 
-          ? Offset(radiusPoint!.x, radiusPoint!.y)
-          : getPointOnPerimeter(math.pi / 4);
+      final handlePoint =
+          radiusPoint != null
+              ? Offset(radiusPoint!.x, radiusPoint!.y)
+              : getPointOnPerimeter(math.pi / 4);
       canvas.drawCircle(handlePoint, controlPointRadius, controlPointPaint);
     }
   }
@@ -123,7 +128,7 @@ class Circle extends GeometryObject {
 
     // Check if we're near the radius point or default handle
     double distanceToHandle;
-    
+
     if (radiusPoint != null) {
       // Use the actual radius point
       distanceToHandle = getDistance(point, radiusPoint!);
@@ -159,11 +164,14 @@ class Circle extends GeometryObject {
         // Only update if the new radius is positive
         if (newRadius > 0) {
           radius = newRadius;
-          
+
           // Update radius point if it exists or create one
           if (radiusPoint != null) {
             // Keep the current angle but update the distance
-            final angle = math.atan2(radiusPoint!.y - center.y, radiusPoint!.x - center.x);
+            final angle = math.atan2(
+              radiusPoint!.y - center.y,
+              radiusPoint!.x - center.x,
+            );
             radiusPoint!.x = center.x + radius * math.cos(angle);
             radiusPoint!.y = center.y + radius * math.sin(angle);
           } else {
@@ -176,7 +184,7 @@ class Circle extends GeometryObject {
       // Move mode - move the entire circle
       center.x += delta.dx;
       center.y += delta.dy;
-      
+
       // Move the radius point if it exists
       if (radiusPoint != null) {
         radiusPoint!.x += delta.dx;
@@ -188,16 +196,16 @@ class Circle extends GeometryObject {
   @override
   Map<String, dynamic> captureState() {
     final state = {'centerX': center.x, 'centerY': center.y, 'radius': radius};
-    
+
     // Add radius point state if it exists
     if (radiusPoint != null) {
       state['radiusPointX'] = radiusPoint!.x;
       state['radiusPointY'] = radiusPoint!.y;
-      state['hasRadiusPoint'] = 1.0;  // Using 1.0 instead of true
+      state['hasRadiusPoint'] = 1.0; // Using 1.0 instead of true
     } else {
-      state['hasRadiusPoint'] = 0.0;  // Using 0.0 instead of false
+      state['hasRadiusPoint'] = 0.0; // Using 0.0 instead of false
     }
-    
+
     return state;
   }
 

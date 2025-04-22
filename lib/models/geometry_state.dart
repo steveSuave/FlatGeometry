@@ -259,7 +259,7 @@ class GeometryState extends ChangeNotifier {
 
     Point? radiusPoint;
     Offset secondPoint;
-    
+
     if (nearbyPoint != null) {
       radiusPoint = nearbyPoint;
       secondPoint = Offset(nearbyPoint.x, nearbyPoint.y);
@@ -277,7 +277,7 @@ class GeometryState extends ChangeNotifier {
       radiusPoint: nearbyPoint == null ? radiusPoint : null,
       shouldAddRadiusPoint: nearbyPoint == null,
     );
-    
+
     executeCommand(command);
     _tempStartPoint = null;
   }

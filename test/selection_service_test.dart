@@ -109,7 +109,15 @@ void main() {
       final circle = Circle(center, 40);
       final state = circle.captureState();
 
-      expect(state, equals({'centerX': 50.0, 'centerY': 60.0, 'radius': 40.0, 'hasRadiusPoint': 0.0}));
+      expect(
+        state,
+        equals({
+          'centerX': 50.0,
+          'centerY': 60.0,
+          'radius': 40.0,
+          'hasRadiusPoint': 0.0,
+        }),
+      );
     });
 
     test('didStateChange detects changes', () {

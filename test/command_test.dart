@@ -92,7 +92,7 @@ void main() {
       // Verify objects were removed
       expect(state.objects.length, 0);
     });
-    
+
     test('AddCircleCommand should handle radius point', () {
       // Create points and circle
       final centerPoint = Point(100, 100);
@@ -158,68 +158,65 @@ void main() {
         expect(point.y, 100.0);
       },
     );
-    
-    test(
-      'TransformObjectCommand should handle circle with radius point',
-      () {
-        // Create center point, radius point and circle
-        final centerPoint = Point(100, 100);
-        final radiusPoint = Point(150, 100);
-        final circle = Circle(centerPoint, 50, radiusPoint: radiusPoint);
-        
-        // Add the objects to state
-        state.addObjectWithoutHistory(centerPoint);
-        state.addObjectWithoutHistory(radiusPoint);
-        state.addObjectWithoutHistory(circle);
-        
-        // Create states with radius point data
-        final oldState = {
-          'centerX': 100.0, 
-          'centerY': 100.0, 
-          'radius': 50.0,
-          'radiusPointX': 150.0,
-          'radiusPointY': 100.0,
-          'hasRadiusPoint': 1.0
-        };
-        
-        final newState = {
-          'centerX': 200.0, 
-          'centerY': 200.0, 
-          'radius': 75.0,
-          'radiusPointX': 275.0,
-          'radiusPointY': 200.0,
-          'hasRadiusPoint': 1.0
-        };
-        
-        // Create transform command
-        final command = TransformObjectCommand(
-          circle,
-          oldState,
-          newState,
-          DragMode.move,
-        );
-        
-        // Execute command
-        command.execute(state);
-        
-        // Verify circle was transformed including radius point
-        expect(circle.center.x, 200.0);
-        expect(circle.center.y, 200.0);
-        expect(circle.radius, 75.0);
-        expect(circle.radiusPoint!.x, 275.0);
-        expect(circle.radiusPoint!.y, 200.0);
-        
-        // Undo command
-        command.undo(state);
-        
-        // Verify circle and radius point were restored
-        expect(circle.center.x, 100.0);
-        expect(circle.center.y, 100.0);
-        expect(circle.radius, 50.0);
-        expect(circle.radiusPoint!.x, 150.0);
-        expect(circle.radiusPoint!.y, 100.0);
-      },
-    );
+
+    test('TransformObjectCommand should handle circle with radius point', () {
+      // Create center point, radius point and circle
+      final centerPoint = Point(100, 100);
+      final radiusPoint = Point(150, 100);
+      final circle = Circle(centerPoint, 50, radiusPoint: radiusPoint);
+
+      // Add the objects to state
+      state.addObjectWithoutHistory(centerPoint);
+      state.addObjectWithoutHistory(radiusPoint);
+      state.addObjectWithoutHistory(circle);
+
+      // Create states with radius point data
+      final oldState = {
+        'centerX': 100.0,
+        'centerY': 100.0,
+        'radius': 50.0,
+        'radiusPointX': 150.0,
+        'radiusPointY': 100.0,
+        'hasRadiusPoint': 1.0,
+      };
+
+      final newState = {
+        'centerX': 200.0,
+        'centerY': 200.0,
+        'radius': 75.0,
+        'radiusPointX': 275.0,
+        'radiusPointY': 200.0,
+        'hasRadiusPoint': 1.0,
+      };
+
+      // Create transform command
+      final command = TransformObjectCommand(
+        circle,
+        oldState,
+        newState,
+        DragMode.move,
+      );
+
+      // Execute command
+      command.execute(state);
+
+      // Verify circle was transformed including radius point
+      expect(circle.center.x, 200.0);
+      expect(circle.center.y, 200.0);
+      expect(circle.radius, 75.0);
+      expect(circle.radiusPoint!.x, 275.0);
+      expect(circle.radiusPoint!.y, 200.0);
+
+      // Undo command
+      command.undo(state);
+
+      // Verify circle and radius point were restored
+      expect(circle.center.x, 100.0);
+      expect(circle.center.y, 100.0);
+      expect(circle.radius, 50.0);
+      expect(circle.radiusPoint!.x, 150.0);
+      expect(circle.radiusPoint!.y, 100.0);
+    });
 
     test('SelectObjectCommand should select and deselect objects', () {
       // Add two objects

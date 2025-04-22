@@ -102,7 +102,7 @@ class AddCircleCommand implements Command {
     if (shouldAddCenterPoint && centerPoint != null) {
       state.addObjectWithoutHistory(centerPoint!);
     }
-    
+
     if (shouldAddRadiusPoint && radiusPoint != null) {
       state.addObjectWithoutHistory(radiusPoint!);
     }
@@ -113,7 +113,7 @@ class AddCircleCommand implements Command {
   @override
   void undo(GeometryState state) {
     state.removeObjectWithoutHistory(circle);
-    
+
     if (shouldAddRadiusPoint && radiusPoint != null) {
       state.removeObjectWithoutHistory(radiusPoint!);
     }
@@ -167,15 +167,16 @@ class TransformObjectCommand implements Command {
       object.center.x = state['centerX'];
       object.center.y = state['centerY'];
       object.radius = state['radius'];
-      
+
       // Handle radius point
       if (state.containsKey('hasRadiusPoint')) {
-        if (state['hasRadiusPoint'] > 0.5) { // Use numeric comparison instead of boolean
+        if (state['hasRadiusPoint'] > 0.5) {
+          // Use numeric comparison instead of boolean
           // Restore or create radius point
           if (object.radiusPoint == null) {
             object.radiusPoint = Point(
-              state['radiusPointX'], 
-              state['radiusPointY']
+              state['radiusPointX'],
+              state['radiusPointY'],
             );
           } else {
             object.radiusPoint!.x = state['radiusPointX'];

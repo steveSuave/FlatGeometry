@@ -244,12 +244,12 @@ void main() {
 
       // Verify objects were created (1 center point, 1 radius point, 1 circle = 3 objects)
       expect(state.objects.length, 3);
-      expect(state.objects.where((obj) => obj is Point).length, 2);
-      expect(state.objects.where((obj) => obj is Circle).length, 1);
-      
+      expect(state.objects.whereType<Point>().length, 2);
+      expect(state.objects.whereType<Circle>().length, 1);
+
       // Get the circle
       final circle = state.objects.firstWhere((obj) => obj is Circle) as Circle;
-      
+
       // Verify circle has a radius point
       expect(circle.radiusPoint, isNotNull);
     });
@@ -539,7 +539,7 @@ void main() {
       // We need one more redo to get all objects back
       await tester.tap(redoButton);
       await tester.pump();
-      
+
       // Verify we have all 6 objects again
       state = tester.element(find.byType(GeometryCanvas)).read<GeometryState>();
       expect(state.objects.length, 6);
